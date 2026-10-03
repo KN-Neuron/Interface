@@ -17,6 +17,10 @@ dist/
 
 src-tauri/target/
 
+# Generated Tauri sidecar binaries
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
+
 
 # ---------------------------------------------------------
 # Python
@@ -80,6 +84,3 @@ desktop.ini
 # ---------------------------------------------------------
 
 .cache/
-
-# Tauri sidecar binaries — generated locally
-src-tauri/binaries/*.exe

@@ -315,7 +315,7 @@ No FBCCA is used in Neuorrun.
 # Repository structure
 
 ```text
-KNeuronInterFace/
+KNeuron---Interface/
 │
 ├── brainaccess-sidecar/
 ├── brainlink-sidecar/
@@ -362,7 +362,7 @@ KNeuronInterFace/
 
 # Quick start on a new machine
 
-KNeuron includes bootstrap scripts for both Windows and Linux.
+KNeuron is primarily supported and validated on Windows. An experimental Linux bootstrap is also included for development and platform testing.
 
 The goal is that after cloning the repository, the development environment and Python sidecars can be recreated locally instead of storing generated dependencies and build artifacts in Git.
 
@@ -372,7 +372,7 @@ The goal is that after cloning the repository, the development environment and P
 
 ```powershell
 git clone <REPOSITORY_URL>
-cd KNeuronInterFace
+cd KNeuron---Interface
 ```
 
 ### 2. Run the bootstrap
@@ -427,15 +427,17 @@ The first build can take significantly longer because Node packages, Rust depend
 
 ---
 
-# Linux quick start
+# Linux experimental setup
 
-The included Linux bootstrap currently targets **Ubuntu/Debian-family distributions**.
+Linux support is currently experimental and has not been validated end-to-end with the full KNeuron hardware stack.
+
+The included Linux bootstrap targets **Ubuntu/Debian-family distributions** and is intended primarily for development and platform testing.
 
 ### 1. Clone the repository
 
 ```bash
 git clone <REPOSITORY_URL>
-cd KNeuronInterFace
+cd KNeuron---Interface
 ```
 
 ### 2. Make the bootstrap executable
@@ -462,7 +464,9 @@ Python virtual environments
 all three Python sidecars
 ```
 
-It also checks device permissions used by serial/Bluetooth devices.
+The script attempts to prepare all three Python sidecars and checks device permissions used by serial/Bluetooth devices.
+
+Successful setup does not guarantee that every hardware integration is supported by the underlying vendor SDK on Linux.
 
 ### Prepare without launching
 
@@ -485,6 +489,8 @@ If the script adds the current user to:
 ```text
 dialout
 ```
+
+BrainAccess support on Linux is not currently considered production-validated. The bootstrap can build the BrainAccess sidecar only if the BrainAccess SDK/dependency used by `brainaccess-sidecar/requirements.txt` is available and compatible with the target Linux environment. Real-device connectivity must be verified separately.
 
 log out and log back in before using serial/RFCOMM devices.
 
@@ -682,6 +688,7 @@ generated executables
 They are build artifacts, not application source.
 
 ### `src-tauri/binaries/*
+
 !src-tauri/binaries/.gitkeep`
 
 The platform-specific sidecar executables can be rebuilt locally by the bootstrap/build scripts:
@@ -1096,7 +1103,7 @@ Windows NSIS output is typically created under:
 src-tauri/target/release/bundle/nsis/
 ```
 
-Linux package output is created by Tauri under the corresponding bundle directories for the configured Linux targets.
+Linux packaging is currently experimental and should not be treated as a production-supported release path until it has been validated on the target distribution.
 
 ---
 
@@ -1473,9 +1480,7 @@ The existing contract contains the project-level module identity and capabilitie
 A typical manifest follows this pattern:
 
 ```ts
-import type {
-  KNeuronModuleManifest,
-} from "../../types/module";
+import type { KNeuronModuleManifest } from "../../types/module";
 
 export const neurofeedbackManifest: KNeuronModuleManifest = {
   schemaVersion: 1,
@@ -1486,8 +1491,7 @@ export const neurofeedbackManifest: KNeuronModuleManifest = {
 
   version: "1.0.0",
 
-  description:
-    "Example EEG neurofeedback module.",
+  description: "Example EEG neurofeedback module.",
 
   category: "VISUALIZATION",
 
@@ -1520,21 +1524,14 @@ The current module component contract uses `KNeuronModuleProps`.
 Example:
 
 ```tsx
-import type {
-  KNeuronModuleProps,
-} from "../../features/modules/moduleDefinition";
+import type { KNeuronModuleProps } from "../../features/modules/moduleDefinition";
 
-export function NeurofeedbackModule({
-  onRequestClose,
-}: KNeuronModuleProps) {
+export function NeurofeedbackModule({ onRequestClose }: KNeuronModuleProps) {
   return (
     <section>
       <h1>Neurofeedback</h1>
 
-      <button
-        type="button"
-        onClick={onRequestClose}
-      >
+      <button type="button" onClick={onRequestClose}>
         Close
       </button>
     </section>
@@ -1551,20 +1548,13 @@ The production module registry operates on complete definitions.
 Example:
 
 ```ts
-import {
-  NeurofeedbackModule,
-} from "./NeurofeedbackModule";
+import { NeurofeedbackModule } from "./NeurofeedbackModule";
 
-import {
-  neurofeedbackManifest,
-} from "./neurofeedbackManifest";
+import { neurofeedbackManifest } from "./neurofeedbackManifest";
 
-import type {
-  KNeuronModuleDefinition,
-} from "../../features/modules/moduleDefinition";
+import type { KNeuronModuleDefinition } from "../../features/modules/moduleDefinition";
 
-export const neurofeedbackModuleDefinition:
-  KNeuronModuleDefinition = {
+export const neurofeedbackModuleDefinition: KNeuronModuleDefinition = {
   manifest: neurofeedbackManifest,
   component: NeurofeedbackModule,
 };
@@ -1587,9 +1577,7 @@ src/features/modules/registerBuiltInModules.ts
 Import the definition there:
 
 ```ts
-import {
-  neurofeedbackModuleDefinition,
-} from "../../modules/neurofeedback/neurofeedbackModuleDefinition";
+import { neurofeedbackModuleDefinition } from "../../modules/neurofeedback/neurofeedbackModuleDefinition";
 ```
 
 and include it in the returned/registered definitions using the same pattern as the existing Cortex, Miner and Neuorrun definitions.
@@ -1653,9 +1641,7 @@ Declare normalized EEG labels, not physical device indexes.
 Allowed:
 
 ```ts
-import {
-  eegStreamService,
-} from "../../core/eeg";
+import { eegStreamService } from "../../core/eeg";
 ```
 
 Not allowed:
@@ -1696,10 +1682,7 @@ const handle = await eegStreamService.acquire({
 Read a buffered historical window:
 
 ```ts
-const window = eegStreamService.getLatestWindow(
-  2.0,
-  ["O1", "Oz", "O2"],
-);
+const window = eegStreamService.getLatestWindow(2.0, ["O1", "Oz", "O2"]);
 ```
 
 Do not create another global hardware ring buffer inside the module.
@@ -1862,9 +1845,7 @@ src/core/devices/adapters/openbci/
 For raw EEG:
 
 ```ts
-export class OpenBCIAdapter
-  implements EEGDeviceAdapter
-{
+export class OpenBCIAdapter implements EEGDeviceAdapter {
   // ...
 }
 ```
@@ -2165,19 +2146,19 @@ one JSON message per line
 Example request:
 
 ```json
-{"id":17,"command":"status"}
+{ "id": 17, "command": "status" }
 ```
 
 Example response:
 
 ```json
-{"id":17,"ok":true,"result":{"state":"connected"}}
+{ "id": 17, "ok": true, "result": { "state": "connected" } }
 ```
 
 Example asynchronous event:
 
 ```json
-{"event":"samples","payload":{"sampleRateHz":250,"sampleCount":8}}
+{ "event": "samples", "payload": { "sampleRateHz": 250, "sampleCount": 8 } }
 ```
 
 The exact commands belong to the sidecar/TypeScript bridge protocol.
@@ -2450,30 +2431,32 @@ git grep -n "brainaccess-bridge" src-tauri
 
 Resource ownership must always be explicit.
 
-| Resource | Owner | Required cleanup |
-| --- | --- | --- |
-| Physical device connection | Adapter / DeviceManager | disconnect |
-| Physical raw EEG stream | EEGStreamService + adapter | stop after final consumer |
-| EEG consumer | Module/hook calling `acquire()` | `handle.release()` |
-| Brain-metrics subscription | Module/hook | unsubscribe |
-| Python sidecar process | TypeScript bridge/adapter | terminate |
-| Classifier request | classifier client/service | resolve/reject/cancel |
-| DOM listener | component/hook | remove listener |
-| Timer | creator | clear timer |
-| `requestAnimationFrame` | renderer/module | cancel frame |
-| Three.js resource | renderer/module/cache | dispose when not shared |
-| Unity bridge listener | Neuorrun integration | remove hook |
+| Resource                   | Owner                           | Required cleanup                              |
+| -------------------------- | ------------------------------- | --------------------------------------------- |
+| Physical device connection | Adapter / DeviceManager         | disconnect                                    |
+| Physical raw EEG stream    | EEGStreamService + adapter      | stop on device disconnect or service disposal |
+| EEG consumer               | Module/hook calling `acquire()` | `handle.release()`                            |
+| Brain-metrics subscription | Module/hook                     | unsubscribe                                   |
+| Python sidecar process     | TypeScript bridge/adapter       | terminate                                     |
+| Classifier request         | classifier client/service       | resolve/reject/cancel                         |
+| DOM listener               | component/hook                  | remove listener                               |
+| Timer                      | creator                         | clear timer                                   |
+| `requestAnimationFrame`    | renderer/module                 | cancel frame                                  |
+| Three.js resource          | renderer/module/cache           | dispose when not shared                       |
+| Unity bridge listener      | Neuorrun integration            | remove hook                                   |
 
 ## Shared EEG lifecycle
 
-The shared service is reference-counted conceptually:
+The shared service allows multiple modules to consume one physical EEG stream.
 
 ```text
 Cortex acquire
 consumer count = 1
+physical stream starts
         ↓
 Miner acquire
 consumer count = 2
+same physical stream is reused
         ↓
 Cortex release
 consumer count = 1
@@ -2481,8 +2464,13 @@ physical stream remains active
         ↓
 Miner release
 consumer count = 0
+physical stream remains active
+        ↓
+device disconnect / service dispose
 physical stream stops
 ```
+
+A module releasing its handle removes only that consumer. It does not stop the physical EEG acquisition.
 
 Therefore a module must never call:
 
@@ -2492,6 +2480,8 @@ adapter.stopStream()
 
 directly.
 
+`EEGStreamService` owns the physical stream lifecycle and serializes adapter start/stop operations.
+
 ## Device switching
 
 Do not switch to another raw EEG adapter while consumers of the current stream are still active.
@@ -2500,10 +2490,11 @@ Correct order:
 
 ```text
 close/release consuming modules
-stop shared stream through consumer lifecycle
 disconnect old device
 connect new device
 ```
+
+The physical EEG stream is stopped as part of device teardown/disconnect, not by a module's `release()`.
 
 ## Async races
 
@@ -2843,3 +2834,30 @@ It is not a medical device and is not intended for diagnosis, treatment, or clin
 ## KNeuron
 
 **Modular Brain-Computer Interface Platform**
+
+## Neuorrun source
+
+The complete Neuorrun Unity project is maintained in a separate repository:
+
+https://github.com/KN-Neuron/Neurorun
+
+The main KNeuron repository contains only:
+
+- the generated Neuorrun WebGL runtime in `public/neuorrun/`,
+- KNeuron-specific integration code and patches in `unity-patch/`.
+
+Rebuilding Neuorrun requires the source project from the repository above.
+
+# License
+
+Unless otherwise noted, original KNeuron source code is licensed
+under the Apache License 2.0.
+
+See:
+
+- `LICENSE`
+- `NOTICE`
+- `THIRD_PARTY.md`
+
+Third-party software, assets, vendor SDKs and runtime components
+may be subject to separate license terms.

@@ -1,15 +1,8 @@
-import {
-  Command,
-  type Child,
-} from "@tauri-apps/plugin-shell";
+import { Command, type Child } from "@tauri-apps/plugin-shell";
 
-import type {
-  BrainMetricsSnapshot,
-} from "../../../brainMetrics";
+import type { BrainMetricsSnapshot } from "../../../brainMetrics";
 
-import {
-  logger,
-} from "../../../../lib/logger";
+import { logger } from "../../../../lib/logger";
 
 export interface BrainLinkPortInfo {
   port: string;
@@ -25,13 +18,9 @@ export interface BrainLinkConnectionInfo {
   baudRate: number;
 }
 
-export type BrainLinkMetricsListener = (
-  metrics: Readonly<BrainMetricsSnapshot>,
-) => void;
+export type BrainLinkMetricsListener = (metrics: Readonly<BrainMetricsSnapshot>) => void;
 
-export type BrainLinkDisconnectListener = (
-  reason: string,
-) => void;
+export type BrainLinkDisconnectListener = (reason: string) => void;
 
 export interface BrainLinkBridgeLike {
   start(): Promise<void>;
@@ -39,21 +28,15 @@ export interface BrainLinkBridgeLike {
 
   scan(): Promise<readonly BrainLinkPortInfo[]>;
 
-  connect(
-    port?: string,
-  ): Promise<BrainLinkConnectionInfo>;
+  connect(port?: string): Promise<BrainLinkConnectionInfo>;
 
   disconnect(): Promise<void>;
 
   getMetrics(): Promise<Readonly<BrainMetricsSnapshot> | null>;
 
-  subscribeMetrics(
-    listener: BrainLinkMetricsListener,
-  ): () => void;
+  subscribeMetrics(listener: BrainLinkMetricsListener): () => void;
 
-  subscribeDisconnected(
-    listener: BrainLinkDisconnectListener,
-  ): () => void;
+  subscribeDisconnected(listener: BrainLinkDisconnectListener): () => void;
 }
 
 interface BridgeResponse {
@@ -149,10 +132,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
     try {
       await this.request("shutdown");
     } catch (error) {
-      logger.warning(
-        "BrainLinkBridge",
-        `Graceful shutdown failed: ${this.getErrorMessage(error)}`,
-      );
+      logger.warning("BrainLinkBridge", `Graceful shutdown failed: ${this.getErrorMessage(error)}`);
     }
 
     if (this.child) {
@@ -171,10 +151,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
   }
 
   async connect(port?: string): Promise<BrainLinkConnectionInfo> {
-    return this.request<BrainLinkConnectionInfo>(
-      "connect",
-      port ? { port } : {},
-    );
+    return this.request<BrainLinkConnectionInfo>("connect", port ? { port } : {});
   }
 
   async disconnect(): Promise<void> {
@@ -185,9 +162,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
     return this.request<BrainMetricsSnapshot | null>("get_metrics");
   }
 
-  subscribeMetrics(
-    listener: BrainLinkMetricsListener,
-  ): () => void {
+  subscribeMetrics(listener: BrainLinkMetricsListener): () => void {
     this.metricsListeners.add(listener);
 
     return () => {
@@ -195,9 +170,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
     };
   }
 
-  subscribeDisconnected(
-    listener: BrainLinkDisconnectListener,
-  ): () => void {
+  subscribeDisconnected(listener: BrainLinkDisconnectListener): () => void {
     this.disconnectListeners.add(listener);
 
     return () => {
@@ -225,9 +198,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
     });
 
     command.on("close", (event) => {
-      this.handleProcessClosed(
-        `BrainLink sidecar exited with code ${event.code ?? "unknown"}.`,
-      );
+      this.handleProcessClosed(`BrainLink sidecar exited with code ${event.code ?? "unknown"}.`);
     });
 
     this.child = await command.spawn();
@@ -294,10 +265,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
       try {
         this.handleMessage(JSON.parse(trimmed) as BridgeMessage);
       } catch (error) {
-        logger.error(
-          "BrainLinkBridge",
-          `Invalid sidecar JSON: ${this.getErrorMessage(error)}`,
-        );
+        logger.error("BrainLinkBridge", `Invalid sidecar JSON: ${this.getErrorMessage(error)}`);
       }
     }
   }
@@ -305,10 +273,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
   private handleMessage(message: BridgeMessage): void {
     switch (message.type) {
       case "ready":
-        logger.debug(
-          "BrainLinkBridge",
-          `Protocol ready: v${message.protocolVersion}`,
-        );
+        logger.debug("BrainLinkBridge", `Protocol ready: v${message.protocolVersion}`);
         return;
 
       case "response": {
@@ -323,9 +288,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
         if (message.ok) {
           pending.resolve(message.result);
         } else {
-          pending.reject(
-            new Error(message.error ?? "BrainLink bridge request failed."),
-          );
+          pending.reject(new Error(message.error ?? "BrainLink bridge request failed."));
         }
 
         return;
@@ -358,10 +321,7 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
       }
 
       case "bridge-error":
-        logger.error(
-          "BrainLinkBridge",
-          message.message ?? "Unknown BrainLink bridge error.",
-        );
+        logger.error("BrainLinkBridge", message.message ?? "Unknown BrainLink bridge error.");
         return;
     }
   }

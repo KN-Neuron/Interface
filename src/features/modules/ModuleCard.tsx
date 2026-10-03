@@ -1,19 +1,22 @@
-import { ModuleThumbnail } from "../../components/ModuleThumbnail";
-
 import type { RegisteredModule } from "../../types/module";
+
+import type { ModuleReadiness } from "./moduleReadiness";
 
 interface ModuleCardProps {
   module: RegisteredModule;
+
+  readiness: ModuleReadiness;
 
   onOpen: ((moduleId: string) => void) | ((moduleId: string) => Promise<void>);
 }
 
 /**
- * Presentation component for a single KNeuron module.
+ * Presentation component for a single KNeuron module, rendered as a row
+ * of the module list.
  *
  * ModuleCard contains no lifecycle implementation.
  */
-export function ModuleCard({ module, onOpen }: ModuleCardProps) {
+export function ModuleCard({ module, readiness, onOpen }: ModuleCardProps) {
   const { manifest, status } = module;
 
   const isOpenDisabled = status === "disabled" || status === "starting" || status === "running";
@@ -21,7 +24,7 @@ export function ModuleCard({ module, onOpen }: ModuleCardProps) {
   let buttonLabel = "Open";
 
   if (status === "starting") {
-    buttonLabel = "Starting...";
+    buttonLabel = "Opening…";
   }
 
   if (status === "running") {
@@ -29,41 +32,42 @@ export function ModuleCard({ module, onOpen }: ModuleCardProps) {
   }
 
   if (status === "error") {
-    buttonLabel = "Retry";
+    buttonLabel = "Open again";
   }
 
   return (
-    <article className="module-card">
-      <ModuleThumbnail src={manifest.appearance.thumbnail} name={manifest.name} />
+    <li className={readiness.ready ? "module-row is-ready" : "module-row"}>
+      <div className="module-row__body">
+        <h2 className="module-row__title">{manifest.name}</h2>
 
-      <div className="module-card__content">
-        <div className="module-card__header">
-          <h2 className="module-card__title">{manifest.name}</h2>
+        <p className="module-row__description">{manifest.description}</p>
 
-          <span className="module-card__version">v{manifest.version}</span>
-        </div>
+        <p className="module-row__requirement">
+          <span className="module-row__need">
+            <span
+              className={readiness.ready ? "led led--on" : "led"}
+              role="img"
+              aria-label={readiness.ready ? "Ready" : "Not ready"}
+            />
+            <span>{readiness.requirement}</span>
+          </span>
+          {readiness.missing && <span className="module-row__missing">{readiness.missing}</span>}
+        </p>
 
-        <p className="module-card__description">{manifest.description}</p>
-
-        <div className="module-card__meta">
-          <span>{manifest.category}</span>
-
-          {manifest.capabilities.eeg?.required && <span>EEG required</span>}
-        </div>
-
-        {status === "error" && module.error && <p className="module-card__error">{module.error}</p>}
-
-        <button
-          className="module-card__open"
-          type="button"
-          disabled={isOpenDisabled}
-          onClick={() => {
-            void onOpen(manifest.id);
-          }}
-        >
-          {buttonLabel}
-        </button>
+        {status === "error" && module.error && <p className="module-row__error">{module.error}</p>}
       </div>
-    </article>
+
+      <button
+        className={readiness.ready ? "primary-button" : "secondary-button"}
+        type="button"
+        disabled={isOpenDisabled}
+        aria-label={`${buttonLabel} ${manifest.name}`}
+        onClick={() => {
+          void onOpen(manifest.id);
+        }}
+      >
+        {buttonLabel}
+      </button>
+    </li>
   );
 }

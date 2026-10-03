@@ -1,21 +1,10 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import type {
-  KNeuronModuleProps,
-} from "../../features/modules/moduleDefinition";
+import type { KNeuronModuleProps } from "../../features/modules/moduleDefinition";
 
-import type {
-  BrainMetricsSnapshot,
-} from "../../core/brainMetrics";
+import type { BrainMetricsSnapshot } from "../../core/brainMetrics";
 
-import {
-  useBrainMetrics,
-} from "./hooks/useBrainMetrics";
+import { useBrainMetrics } from "./hooks/useBrainMetrics";
 
 import "./styles/neuorrun.css";
 
@@ -33,11 +22,7 @@ interface UnityBuildManifest {
 }
 
 interface UnityInstance {
-  SendMessage(
-    objectName: string,
-    methodName: string,
-    value?: string | number,
-  ): void;
+  SendMessage(objectName: string, methodName: string, value?: string | number): void;
 
   Quit(): Promise<void>;
 }
@@ -66,15 +51,11 @@ function formatMetric(value: number | null | undefined): string {
   return value == null ? "--" : String(value);
 }
 
-export function NeuorrunModule({
-  onRequestClose,
-}: KNeuronModuleProps): JSX.Element {
+export function NeuorrunModule(_props: KNeuronModuleProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const unityRef = useRef<UnityInstance | null>(null);
 
-  const [loadState, setLoadState] = useState<
-    "loading" | "ready" | "missing" | "error"
-  >("loading");
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "missing" | "error">("loading");
 
   const [progress, setProgress] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -100,9 +81,7 @@ export function NeuorrunModule({
         });
 
         if (!response.ok) {
-          throw new Error(
-            `Neuorrun manifest could not be loaded (${response.status}).`,
-          );
+          throw new Error(`Neuorrun manifest could not be loaded (${response.status}).`);
         }
 
         const manifest = (await response.json()) as UnityBuildManifest;
@@ -114,12 +93,7 @@ export function NeuorrunModule({
           return;
         }
 
-        if (
-          !manifest.loader ||
-          !manifest.data ||
-          !manifest.framework ||
-          !manifest.code
-        ) {
+        if (!manifest.loader || !manifest.data || !manifest.framework || !manifest.code) {
           throw new Error("Neuorrun Unity manifest is incomplete.");
         }
 
@@ -135,8 +109,7 @@ export function NeuorrunModule({
             script.async = true;
             script.dataset.kneuronUnityLoader = "neuorrun";
             script.onload = () => resolve();
-            script.onerror = () =>
-              reject(new Error("Neuorrun Unity loader failed to load."));
+            script.onerror = () => reject(new Error("Neuorrun Unity loader failed to load."));
             document.body.appendChild(script);
             loaderScript = script;
           });
@@ -164,15 +137,11 @@ export function NeuorrunModule({
           config.symbolsUrl = `/neuorrun/${manifest.symbols}`;
         }
 
-        const instance = await window.createUnityInstance(
-          canvas,
-          config,
-          (value) => {
-            if (!cancelled) {
-              setProgress(value);
-            }
-          },
-        );
+        const instance = await window.createUnityInstance(canvas, config, (value) => {
+          if (!cancelled) {
+            setProgress(value);
+          }
+        });
 
         if (cancelled) {
           await instance.Quit();
@@ -217,11 +186,7 @@ export function NeuorrunModule({
     }
 
     try {
-      instance.SendMessage(
-        "KNeuronBridge",
-        "SetMetricsJson",
-        metricsPayload(metrics),
-      );
+      instance.SendMessage("KNeuronBridge", "SetMetricsJson", metricsPayload(metrics));
     } catch {
       // Unity may be between scenes for a frame. The next metrics event will
       // retry automatically.
@@ -231,50 +196,44 @@ export function NeuorrunModule({
   return (
     <section className="neuorrun-module">
       <header className="neuorrun-module__bar">
-        <div>
-          <span className="neuorrun-module__eyebrow">NEUORRUN / BRAINLINK</span>
-          <strong>Neuorrun</strong>
-        </div>
-
-        <div className="neuorrun-module__telemetry">
+        <dl className="neuorrun-module__telemetry">
           <div>
-            <small>BRAINLINK</small>
-            <span className={brain.state === "live" ? "is-live" : ""}>
-              {brain.state === "live" ? "LIVE" : "NOT CONNECTED"}
-            </span>
+            <dt>Headset</dt>
+            <dd className={brain.state === "live" ? "is-live" : ""}>
+              {brain.state === "live" ? "Live" : "Not connected"}
+            </dd>
           </div>
           <div>
-            <small>ATTENTION</small>
-            <span>{formatMetric(brain.metrics?.attention)}</span>
+            <dt>Attention</dt>
+            <dd>{formatMetric(brain.metrics?.attention)}</dd>
           </div>
           <div>
-            <small>MEDITATION</small>
-            <span>{formatMetric(brain.metrics?.meditation)}</span>
+            <dt>Meditation</dt>
+            <dd>{formatMetric(brain.metrics?.meditation)}</dd>
           </div>
           <div>
-            <small>SIGNAL</small>
-            <span>{signalLabel}</span>
+            <dt>Contact</dt>
+            <dd>{signalLabel}</dd>
           </div>
-          <button type="button" onClick={onRequestClose}>
-            EXIT MODULE
-          </button>
-        </div>
+        </dl>
+        <p className="neuorrun-module__hint">
+          Attention controls the game. Keyboard and controller also work.
+        </p>
       </header>
 
       <div className="neuorrun-module__stage">
-      <canvas
-        id="unity-canvas"
-        ref={canvasRef}
-        className="neuorrun-module__canvas"
-        tabIndex={0}
-        onPointerDown={(event) => {
-          event.currentTarget.focus();
-        }}
-      />
+        <canvas
+          id="unity-canvas"
+          ref={canvasRef}
+          className="neuorrun-module__canvas"
+          tabIndex={0}
+          onPointerDown={(event) => {
+            event.currentTarget.focus();
+          }}
+        />
 
         {loadState === "loading" ? (
           <div className="neuorrun-module__overlay">
-            <span>UNITY WEBGL</span>
             <h2>Loading Neuorrun</h2>
             <div className="neuorrun-module__progress">
               <div style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -285,18 +244,16 @@ export function NeuorrunModule({
 
         {loadState === "missing" ? (
           <div className="neuorrun-module__overlay">
-            <span>UNITY BUILD REQUIRED</span>
-            <h2>Neuorrun assets are not installed yet</h2>
+            <h2>Neuorrun game files are missing</h2>
             <p>
-              Build the supplied Unity project for WebGL, then run the package
-              prepare script described in INTEGRATION.md.
+              Build the Unity project for WebGL, then copy it here with
+              unity-patch/prepare_webgl_build.py (see README, “Building Neuorrun manually”).
             </p>
           </div>
         ) : null}
 
         {loadState === "error" ? (
           <div className="neuorrun-module__overlay neuorrun-module__overlay--error">
-            <span>LOAD ERROR</span>
             <h2>Neuorrun could not start</h2>
             <p>{loadError}</p>
           </div>
@@ -304,13 +261,13 @@ export function NeuorrunModule({
 
         {loadState === "ready" && brain.state === "unavailable" ? (
           <div className="neuorrun-module__brain-warning">
-            <strong>BrainLink not connected</strong>
+            <strong>No attention signal</strong>
             <span>
               {brain.message ??
-                "Connect BrainLink Lite in Device. Keyboard/controller input remains available."}
+                "Connect BrainLink Lite on the Devices page. Keyboard and controller still work."}
             </span>
             <button type="button" onClick={brain.retry}>
-              RETRY
+              Try again
             </button>
           </div>
         ) : null}

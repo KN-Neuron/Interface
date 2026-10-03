@@ -22,6 +22,12 @@ export const APP_CONFIG = {
   enableDevelopmentModules: import.meta.env.DEV,
 
   /**
+   * Simulated EEG / brain-metrics devices for working without hardware.
+   * Never registered in production builds.
+   */
+  enableSimulationDevices: import.meta.env.DEV,
+
+  /**
    * Development-only diagnostics must never be exposed in production UI.
    */
   enableDeveloperTools: import.meta.env.DEV,

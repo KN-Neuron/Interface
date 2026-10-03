@@ -9,6 +9,7 @@ interface CortexViewportProps {
   quality: CortexQuality;
   hotspotRadius: number;
   deformation: number;
+  meshLinesVisible: boolean;
   editMode: boolean;
   labelsVisible: boolean;
   onRendererReady: (renderer: CortexRenderer | null) => void;
@@ -22,6 +23,7 @@ export function CortexViewport({
   quality,
   hotspotRadius,
   deformation,
+  meshLinesVisible,
   editMode,
   labelsVisible,
   onRendererReady,
@@ -72,6 +74,10 @@ export function CortexViewport({
   useEffect(() => {
     rendererRef.current?.setDeformation(deformation);
   }, [deformation]);
+
+  useEffect(() => {
+    rendererRef.current?.setWireVisible(meshLinesVisible);
+  }, [meshLinesVisible]);
 
   useEffect(() => {
     rendererRef.current?.setEditMode(editMode);

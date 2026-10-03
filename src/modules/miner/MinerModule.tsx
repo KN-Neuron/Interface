@@ -1,13 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import type {
-  KNeuronModuleProps,
-} from "../../features/modules/moduleDefinition";
+import type { KNeuronModuleProps } from "../../features/modules/moduleDefinition";
 
 import {
   ssvepClassifierService,
@@ -24,17 +17,11 @@ import {
   type SsvepTarget,
 } from "../../core/ssvep";
 
-import {
-  DiamondIcon,
-} from "./components/DiamondIcon";
+import { DiamondIcon } from "./components/DiamondIcon";
 
-import {
-  MinerIcon,
-} from "./components/MinerIcon";
+import { MinerIcon } from "./components/MinerIcon";
 
-import {
-  SsvepOverlay,
-} from "./components/SsvepOverlay";
+import { SsvepOverlay } from "./components/SsvepOverlay";
 
 import {
   createInitialMinerGame,
@@ -45,600 +32,285 @@ import {
   moveMiner,
 } from "./game/minerGame";
 
-import {
-  useMinerEEG,
-} from "./hooks/useMinerEEG";
+import { useMinerEEG } from "./hooks/useMinerEEG";
 
-import type {
-  GridPosition,
-  MinerLastDecision,
-  MinerTrialPhase,
-} from "./models/miner";
+import type { GridPosition, MinerLastDecision, MinerTrialPhase } from "./models/miner";
 
 import "./styles/miner.css";
 
-function positionKey(
-  position:
-    GridPosition,
-): string {
+function positionKey(position: GridPosition): string {
   return `${position[0]}:${position[1]}`;
 }
 
-const wallKeys =
-  new Set(
-    MINER_WALLS.map(
-      positionKey,
-    ),
-  );
+const wallKeys = new Set(MINER_WALLS.map(positionKey));
 
-function getErrorMessage(
-  error: unknown,
-): string {
-  return error instanceof Error
-    ? error.message
-    : String(error);
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
-export function MinerModule(
-  _props:
-    KNeuronModuleProps,
-) {
+export function MinerModule(_props: KNeuronModuleProps) {
   const {
-    state:
-      eegState,
-    error:
-      eegError,
+    state: eegState,
+    error: eegError,
     sampleRateHz,
     channelCount,
-    retry:
-      retryEEG,
+    retry: retryEEG,
     beginCapture,
     stopCapture,
     availableCaptureSamples,
     takeLatestCapture,
   } = useMinerEEG();
 
-  const [
-    game,
-    setGame,
-  ] = useState(
-    createInitialMinerGame,
-  );
+  const [game, setGame] = useState(createInitialMinerGame);
 
-  const [
-    message,
-    setMessage,
-  ] = useState(
+  const [message, setMessage] = useState(
     "Collect every diamond. One SSVEP decision equals one movement attempt.",
   );
 
-  const [
-    trialSeconds,
-    setTrialSeconds,
-  ] = useState(
-    TAALON_DEFAULT_TRIAL_SECONDS,
+  const [trialSeconds, setTrialSeconds] = useState(TAALON_DEFAULT_TRIAL_SECONDS);
+
+  const [targets, setTargets] = useState<readonly SsvepTarget[]>(TAALON_DEFAULT_TARGETS);
+
+  const [frequencyInputs, setFrequencyInputs] = useState(
+    TAALON_DEFAULT_TARGETS.map((target) => target.frequencyHz.toFixed(2)),
   );
 
-  const [
+  const [trialPhase, setTrialPhase] = useState<MinerTrialPhase>("idle");
+
+  const [countdownRemaining, setCountdownRemaining] = useState(TAALON_COUNTDOWN_SECONDS);
+
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const [lastDecision, setLastDecision] = useState<MinerLastDecision | null>(null);
+
+  const [trialError, setTrialError] = useState<string | null>(null);
+
+  const trialStartedAtRef = useRef(0);
+
+  const countdownEndsAtRef = useRef(0);
+
+  const classifyingRef = useRef(false);
+
+  const trialPhaseRef = useRef<MinerTrialPhase>("idle");
+
+  const remainingDiamonds = MINER_DIAMONDS.length - game.collected.length;
+
+  const setPhase = useCallback((phase: MinerTrialPhase) => {
+    trialPhaseRef.current = phase;
+
+    setTrialPhase(phase);
+  }, []);
+
+  const cancelTrial = useCallback(() => {
+    stopCapture();
+
+    classifyingRef.current = false;
+
+    setElapsedSeconds(0);
+
+    setPhase("idle");
+
+    setMessage("SSVEP selection cancelled.");
+  }, [setPhase, stopCapture]);
+
+  const applyDecision = useCallback(
+    (classification: SsvepClassification) => {
+      const direction = classification.direction;
+
+      const result = moveMiner(game, direction);
+
+      setGame(result.state);
+
+      setLastDecision({
+        direction,
+        classification,
+      });
+
+      if (result.state.completed) {
+        setMessage(
+          `FBCCA: ${direction} (${classification.winnerHz.toFixed(2)} Hz). All diamonds collected.`,
+        );
+      } else if (result.collectedDiamond) {
+        setMessage(
+          `FBCCA: ${direction} (${classification.winnerHz.toFixed(2)} Hz). Diamond collected.`,
+        );
+      } else {
+        setMessage(
+          `FBCCA: ${direction} (${classification.winnerHz.toFixed(2)} Hz). ${result.message}`,
+        );
+      }
+    },
+    [game],
+  );
+
+  const classifyCapture = useCallback(async () => {
+    if (classifyingRef.current || sampleRateHz === null) {
+      return;
+    }
+
+    classifyingRef.current = true;
+
+    setPhase("classifying");
+
+    try {
+      const requiredSamples = Math.round(trialSeconds * sampleRateHz);
+
+      const window = takeLatestCapture(requiredSamples);
+
+      stopCapture();
+
+      const classification = await ssvepClassifierService.classify(window, sampleRateHz, targets);
+
+      applyDecision(classification);
+
+      setTrialError(null);
+
+      setPhase("idle");
+    } catch (error) {
+      const text = getErrorMessage(error);
+
+      setTrialError(text);
+
+      setMessage(`No movement: ${text}`);
+
+      setPhase("error");
+    } finally {
+      classifyingRef.current = false;
+    }
+  }, [
+    applyDecision,
+    sampleRateHz,
+    setPhase,
+    stopCapture,
+    takeLatestCapture,
     targets,
-    setTargets,
-  ] =
-    useState<
-      readonly SsvepTarget[]
-    >(
-      TAALON_DEFAULT_TARGETS,
-    );
+    trialSeconds,
+  ]);
 
-  const [
-    frequencyInputs,
-    setFrequencyInputs,
-  ] = useState(
-    TAALON_DEFAULT_TARGETS.map(
-      (target) =>
-        target.frequencyHz.toFixed(
-          2,
-        ),
-    ),
-  );
+  const beginTrial = useCallback(() => {
+    if (eegState !== "streaming") {
+      setMessage("Connect an EEG device before starting an SSVEP movement.");
+      return;
+    }
 
-  const [
-    trialPhase,
-    setTrialPhase,
-  ] =
-    useState<MinerTrialPhase>(
-      "idle",
-    );
+    if (game.completed) {
+      return;
+    }
 
-  const [
-    countdownRemaining,
-    setCountdownRemaining,
-  ] = useState(
-    TAALON_COUNTDOWN_SECONDS,
-  );
+    setTrialError(null);
 
-  const [
-    elapsedSeconds,
-    setElapsedSeconds,
-  ] = useState(0);
+    setElapsedSeconds(0);
 
-  const [
-    lastDecision,
-    setLastDecision,
-  ] =
-    useState<
-      MinerLastDecision | null
-    >(null);
+    setCountdownRemaining(TAALON_COUNTDOWN_SECONDS);
 
-  const [
-    trialError,
-    setTrialError,
-  ] =
-    useState<
-      string | null
-    >(null);
+    countdownEndsAtRef.current = performance.now() + TAALON_COUNTDOWN_SECONDS * 1000;
 
-  const trialStartedAtRef =
-    useRef(0);
+    setPhase("countdown");
+  }, [eegState, game.completed, setPhase]);
 
-  const countdownEndsAtRef =
-    useRef(0);
+  const resetGame = useCallback(() => {
+    stopCapture();
 
-  const classifyingRef =
-    useRef(false);
+    setGame(createInitialMinerGame());
 
-  const trialPhaseRef =
-    useRef<MinerTrialPhase>(
-      "idle",
-    );
+    setLastDecision(null);
 
-  const remainingDiamonds =
-    MINER_DIAMONDS.length -
-    game.collected.length;
+    setTrialError(null);
 
-  const setPhase =
-    useCallback(
-      (
-        phase:
-          MinerTrialPhase,
-      ) => {
-        trialPhaseRef.current =
-          phase;
+    setMessage("New expedition. Collect every diamond.");
 
-        setTrialPhase(
-          phase,
-        );
-      },
-      [],
-    );
+    setPhase("idle");
+  }, [setPhase, stopCapture]);
 
-  const cancelTrial =
-    useCallback(() => {
-      stopCapture();
+  const commitFrequencies = useCallback(() => {
+    try {
+      const parsed = frequencyInputs.map((value) => Number(value.replace(",", ".")));
 
-      classifyingRef.current =
-        false;
+      validateTaalonFrequencies(parsed);
 
-      setElapsedSeconds(
-        0,
+      setTargets(
+        TAALON_DEFAULT_TARGETS.map((target, index) => ({
+          ...target,
+          frequencyHz: parsed[index],
+        })),
       );
 
-      setPhase(
-        "idle",
-      );
+      setFrequencyInputs(parsed.map((value) => value.toFixed(2)));
 
-      setMessage(
-        "SSVEP selection cancelled.",
-      );
-    }, [
-      setPhase,
-      stopCapture,
-    ]);
+      setLastDecision(null);
 
-  const applyDecision =
-    useCallback(
-      (
-        classification:
-          SsvepClassification,
-      ) => {
-        const direction =
-          classification.direction;
-
-        const result =
-          moveMiner(
-            game,
-            direction,
-          );
-
-        setGame(
-          result.state,
-        );
-
-        setLastDecision(
-          {
-            direction,
-            classification,
-          },
-        );
-
-        if (
-          result.state.completed
-        ) {
-          setMessage(
-            `FBCCA: ${direction} (${classification.winnerHz.toFixed(2)} Hz). All diamonds collected.`,
-          );
-        } else if (
-          result.collectedDiamond
-        ) {
-          setMessage(
-            `FBCCA: ${direction} (${classification.winnerHz.toFixed(2)} Hz). Diamond collected.`,
-          );
-        } else {
-          setMessage(
-            `FBCCA: ${direction} (${classification.winnerHz.toFixed(2)} Hz). ${result.message}`,
-          );
-        }
-      },
-      [game],
-    );
-
-  const classifyCapture =
-    useCallback(
-      async () => {
-        if (
-          classifyingRef.current ||
-          sampleRateHz ===
-            null
-        ) {
-          return;
-        }
-
-        classifyingRef.current =
-          true;
-
-        setPhase(
-          "classifying",
-        );
-
-        try {
-          const requiredSamples =
-            Math.round(
-              trialSeconds *
-                sampleRateHz,
-            );
-
-          const window =
-            takeLatestCapture(
-              requiredSamples,
-            );
-
-          stopCapture();
-
-          const classification =
-            await ssvepClassifierService.classify(
-              window,
-              sampleRateHz,
-              targets,
-            );
-
-          applyDecision(
-            classification,
-          );
-
-          setTrialError(
-            null,
-          );
-
-          setPhase(
-            "idle",
-          );
-        } catch (
-          error
-        ) {
-          const text =
-            getErrorMessage(
-              error,
-            );
-
-          setTrialError(
-            text,
-          );
-
-          setMessage(
-            `No movement: ${text}`,
-          );
-
-          setPhase(
-            "error",
-          );
-        } finally {
-          classifyingRef.current =
-            false;
-        }
-      },
-      [
-        applyDecision,
-        sampleRateHz,
-        setPhase,
-        stopCapture,
-        takeLatestCapture,
-        targets,
-        trialSeconds,
-      ],
-    );
-
-  const beginTrial =
-    useCallback(() => {
-      if (
-        eegState !==
-        "streaming"
-      ) {
-        setMessage(
-          "Connect an EEG device before starting an SSVEP movement.",
-        );
-        return;
-      }
-
-      if (game.completed) {
-        return;
-      }
-
-      setTrialError(
-        null,
-      );
-
-      setElapsedSeconds(
-        0,
-      );
-
-      setCountdownRemaining(
-        TAALON_COUNTDOWN_SECONDS,
-      );
-
-      countdownEndsAtRef.current =
-        performance.now() +
-        TAALON_COUNTDOWN_SECONDS *
-          1000;
-
-      setPhase(
-        "countdown",
-      );
-    }, [
-      eegState,
-      game.completed,
-      setPhase,
-    ]);
-
-  const resetGame =
-    useCallback(() => {
-      stopCapture();
-
-      setGame(
-        createInitialMinerGame(),
-      );
-
-      setLastDecision(
-        null,
-      );
-
-      setTrialError(
-        null,
-      );
-
-      setMessage(
-        "New expedition. Collect every diamond.",
-      );
-
-      setPhase(
-        "idle",
-      );
-    }, [
-      setPhase,
-      stopCapture,
-    ]);
-
-  const commitFrequencies =
-    useCallback(() => {
-      try {
-        const parsed =
-          frequencyInputs.map(
-            (value) =>
-              Number(
-                value.replace(
-                  ",",
-                  ".",
-                ),
-              ),
-          );
-
-        validateTaalonFrequencies(
-          parsed,
-        );
-
-        setTargets(
-          TAALON_DEFAULT_TARGETS.map(
-            (
-              target,
-              index,
-            ) => ({
-              ...target,
-              frequencyHz:
-                parsed[index],
-            }),
-          ),
-        );
-
-        setFrequencyInputs(
-          parsed.map(
-            (value) =>
-              value.toFixed(2),
-          ),
-        );
-
-        setLastDecision(
-          null,
-        );
-
-        setMessage(
-          "Stimulus and FBCCA frequencies updated together.",
-        );
-      } catch (
-        error
-      ) {
-        setMessage(
-          getErrorMessage(
-            error,
-          ),
-        );
-      }
-    }, [
-      frequencyInputs,
-    ]);
+      setMessage("Stimulus and FBCCA frequencies updated together.");
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    }
+  }, [frequencyInputs]);
 
   useEffect(() => {
-    if (
-      trialPhase ===
-      "idle" ||
-      trialPhase ===
-      "classifying" ||
-      trialPhase ===
-      "error"
-    ) {
+    if (trialPhase === "idle" || trialPhase === "classifying" || trialPhase === "error") {
       return;
     }
 
     let frame = 0;
 
-    const tick = (
-      now: number,
-    ) => {
-      const phase =
-        trialPhaseRef.current;
+    const tick = (now: number) => {
+      const phase = trialPhaseRef.current;
 
-      if (
-        phase ===
-        "countdown"
-      ) {
-        const remainingMs =
-          countdownEndsAtRef.current -
-          now;
+      if (phase === "countdown") {
+        const remainingMs = countdownEndsAtRef.current - now;
 
-        const remaining =
-          Math.max(
-            1,
-            Math.ceil(
-              remainingMs /
-                1000,
-            ),
-          );
+        const remaining = Math.max(1, Math.ceil(remainingMs / 1000));
 
-        setCountdownRemaining(
-          remaining,
-        );
+        setCountdownRemaining(remaining);
 
-        if (
-          remainingMs <= 0
-        ) {
+        if (remainingMs <= 0) {
           beginCapture();
 
-          trialStartedAtRef.current =
-            now;
+          trialStartedAtRef.current = now;
 
-          setElapsedSeconds(
-            0,
-          );
+          setElapsedSeconds(0);
 
-          setPhase(
-            "stimulating",
-          );
+          setPhase("stimulating");
         }
-      } else if (
-        phase ===
-          "stimulating" ||
-        phase ===
-          "waiting-samples"
-      ) {
-        const elapsed =
-          (
-            now -
-            trialStartedAtRef.current
-          ) / 1000;
+      } else if (phase === "stimulating" || phase === "waiting-samples") {
+        const elapsed = (now - trialStartedAtRef.current) / 1000;
 
-        setElapsedSeconds(
-          elapsed,
-        );
+        setElapsedSeconds(elapsed);
 
-        const sampleRate =
-          sampleRateHz;
+        const sampleRate = sampleRateHz;
 
-        if (
-          sampleRate !== null
-        ) {
-          const required =
-            Math.round(
-              trialSeconds *
-                sampleRate,
-            );
+        if (sampleRate !== null) {
+          const required = Math.round(trialSeconds * sampleRate);
 
-          if (
-            elapsed >=
-              trialSeconds &&
-            availableCaptureSamples() >=
-              required
-          ) {
+          if (elapsed >= trialSeconds && availableCaptureSamples() >= required) {
             void classifyCapture();
             return;
           }
 
-          if (
-            elapsed >=
-            trialSeconds &&
-            phase !==
-              "waiting-samples"
-          ) {
-            setPhase(
-              "waiting-samples",
-            );
+          if (elapsed >= trialSeconds && phase !== "waiting-samples") {
+            setPhase("waiting-samples");
           }
 
-          if (
-            elapsed >
-            trialSeconds +
-              TAALON_SAMPLE_TIMEOUT_SECONDS
-          ) {
+          if (elapsed > trialSeconds + TAALON_SAMPLE_TIMEOUT_SECONDS) {
             stopCapture();
 
-            setTrialError(
-              "Too few EEG samples; trial cancelled.",
-            );
+            setTrialError("Too few EEG samples; trial cancelled.");
 
-            setMessage(
-              "No movement: too few EEG samples.",
-            );
+            setMessage("No movement: too few EEG samples.");
 
-            setPhase(
-              "error",
-            );
+            setPhase("error");
 
             return;
           }
         }
       }
 
-      frame =
-        requestAnimationFrame(
-          tick,
-        );
+      frame = requestAnimationFrame(tick);
     };
 
-    frame =
-      requestAnimationFrame(
-        tick,
-      );
+    frame = requestAnimationFrame(tick);
 
     return () => {
-      cancelAnimationFrame(
-        frame,
-      );
+      cancelAnimationFrame(frame);
     };
   }, [
     availableCaptureSamples,
@@ -652,79 +324,44 @@ export function MinerModule(
   ]);
 
   useEffect(() => {
-    const handleKeyDown =
-      (
-        event:
-          KeyboardEvent,
-      ) => {
-        if (
-          event.key ===
-          "Escape" &&
-          trialPhaseRef.current !==
-            "idle"
-        ) {
-          cancelTrial();
-          return;
-        }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && trialPhaseRef.current !== "idle") {
+        cancelTrial();
+        return;
+      }
 
-        if (
-          !import.meta.env.DEV ||
-          trialPhaseRef.current !==
-            "idle"
-        ) {
-          return;
-        }
+      if (!import.meta.env.DEV || trialPhaseRef.current !== "idle") {
+        return;
+      }
 
-        const direction:
-          SsvepDirection | null =
-          event.key ===
-          "ArrowUp"
-            ? "UP"
-            : event.key ===
-                "ArrowLeft"
-              ? "LEFT"
-              : event.key ===
-                  "ArrowRight"
-                ? "RIGHT"
-                : event.key ===
-                    "ArrowDown"
-                  ? "DOWN"
-                  : null;
+      const direction: SsvepDirection | null =
+        event.key === "ArrowUp"
+          ? "UP"
+          : event.key === "ArrowLeft"
+            ? "LEFT"
+            : event.key === "ArrowRight"
+              ? "RIGHT"
+              : event.key === "ArrowDown"
+                ? "DOWN"
+                : null;
 
-        if (!direction) {
-          return;
-        }
+      if (!direction) {
+        return;
+      }
 
-        const result =
-          moveMiner(
-            game,
-            direction,
-          );
+      const result = moveMiner(game, direction);
 
-        setGame(
-          result.state,
-        );
+      setGame(result.state);
 
-        setMessage(
-          `DEV keyboard: ${direction}. ${result.message}`,
-        );
-      };
+      setMessage(`DEV keyboard: ${direction}. ${result.message}`);
+    };
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown,
-    );
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener(
-        "keydown",
-        handleKeyDown,
-      );
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [
-    cancelTrial,
-    game,
-  ]);
+  }, [cancelTrial, game]);
 
   const overlayPhase =
     trialPhase === "countdown" ||
@@ -736,70 +373,11 @@ export function MinerModule(
 
   return (
     <section className="miner-game">
-      <header className="miner-game__header">
-        <div>
-          <span className="miner-game__eyebrow">
-            TAALON / SSVEP GAME
-          </span>
-
-          <h1>
-            Deep Core Expedition
-          </h1>
-
-          <p>
-            Collect all diamonds.
-            Each FBCCA decision moves
-            the miner by one cell.
-          </p>
-        </div>
-
-        <div className="miner-game__stream">
-          <span
-            className={`miner-game__status-dot miner-game__status-dot--${eegState}`}
-          />
-
-          <div>
-            <small>
-              EEG STREAM
-            </small>
-
-            <strong>
-              {eegState.toUpperCase()}
-            </strong>
-          </div>
-
-          <div>
-            <small>
-              RATE
-            </small>
-
-            <strong>
-              {sampleRateHz ??
-                "--"}{" "}
-              Hz
-            </strong>
-          </div>
-
-          <div>
-            <small>
-              CHANNELS
-            </small>
-
-            <strong>
-              {channelCount ||
-                "--"}
-            </strong>
-          </div>
-        </div>
-      </header>
-
       <div className="miner-game__layout">
         <main className="miner-game__board-panel">
           <div className="miner-game__mission-bar">
             <div>
-              <small>
-                DIAMONDS
-              </small>
+              <small>Diamonds</small>
 
               <strong>
                 {game.collected.length}
@@ -809,109 +387,55 @@ export function MinerModule(
             </div>
 
             <div>
-              <small>
-                MOVES
-              </small>
+              <small>Moves</small>
 
-              <strong>
-                {game.moves}
-              </strong>
+              <strong>{game.moves}</strong>
             </div>
 
             <div>
-              <small>
-                REMAINING
-              </small>
+              <small>Remaining</small>
 
-              <strong>
-                {
-                  remainingDiamonds
-                }
-              </strong>
+              <strong>{remainingDiamonds}</strong>
             </div>
 
-            <div className="miner-game__mission-message">
-              {message}
-            </div>
+            <div className="miner-game__mission-message">{message}</div>
           </div>
 
           <div
             className="miner-game__board"
             style={{
-              gridTemplateColumns:
-                `repeat(${MINER_BOARD_WIDTH}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${MINER_BOARD_WIDTH}, minmax(0, 1fr))`,
             }}
           >
             {Array.from(
               {
-                length:
-                  MINER_BOARD_WIDTH *
-                  MINER_BOARD_HEIGHT,
+                length: MINER_BOARD_WIDTH * MINER_BOARD_HEIGHT,
               },
-              (
-                _,
-                index,
-              ) => {
-                const x =
-                  index %
-                  MINER_BOARD_WIDTH;
+              (_, index) => {
+                const x = index % MINER_BOARD_WIDTH;
 
-                const y =
-                  Math.floor(
-                    index /
-                      MINER_BOARD_WIDTH,
-                  );
+                const y = Math.floor(index / MINER_BOARD_WIDTH);
 
-                const position:
-                  GridPosition = [
-                  x,
-                  y,
-                ];
+                const position: GridPosition = [x, y];
 
-                const cellKey =
-                  positionKey(
-                    position,
-                  );
+                const cellKey = positionKey(position);
 
-                const isWall =
-                  wallKeys.has(
-                    cellKey,
-                  );
+                const isWall = wallKeys.has(cellKey);
 
-                const isMiner =
-                  game.miner[0] ===
-                    x &&
-                  game.miner[1] ===
-                    y;
+                const isMiner = game.miner[0] === x && game.miner[1] === y;
 
-                const diamond =
-                  MINER_DIAMONDS.find(
-                    (
-                      candidate,
-                    ) =>
-                      positionKey(
-                        candidate.position,
-                      ) ===
-                      cellKey,
-                  );
+                const diamond = MINER_DIAMONDS.find(
+                  (candidate) => positionKey(candidate.position) === cellKey,
+                );
 
-                const collected =
-                  diamond
-                    ? game.collected.includes(
-                        diamond.id,
-                      )
-                    : false;
+                const collected = diamond ? game.collected.includes(diamond.id) : false;
 
                 return (
                   <div
                     className={`miner-game__cell ${
-                      isWall
-                        ? "miner-game__cell--wall"
-                        : "miner-game__cell--open"
+                      isWall ? "miner-game__cell--wall" : "miner-game__cell--open"
                     }`}
-                    key={
-                      cellKey
-                    }
+                    key={cellKey}
                   >
                     {isWall ? (
                       <div className="miner-game__rock">
@@ -921,8 +445,7 @@ export function MinerModule(
                       </div>
                     ) : null}
 
-                    {diamond &&
-                    !collected ? (
+                    {diamond && !collected ? (
                       <div className="miner-game__diamond">
                         <DiamondIcon />
                       </div>
@@ -942,66 +465,54 @@ export function MinerModule(
           <div className="miner-game__legend">
             <span>
               <i className="miner-game__legend-miner" />
-              MINER
+              Miner
             </span>
 
             <span>
               <i className="miner-game__legend-diamond" />
-              DIAMOND
+              Diamond
             </span>
 
             <span>
               <i className="miner-game__legend-rock" />
-              ROCK
+              Rock
             </span>
           </div>
         </main>
 
         <aside className="miner-game__control-panel">
           <div className="miner-game__section">
-            <span className="miner-game__section-label">
-              BCI CONTROL
-            </span>
+            <div className="miner-game__stream">
+              <span className={`miner-game__status-dot miner-game__status-dot--${eegState}`} />
+              <span>
+                EEG {eegState}
+                {sampleRateHz ? `, ${sampleRateHz} Hz, ${channelCount} channels` : ""}
+              </span>
+            </div>
 
-            <h2>
-              Next movement
-            </h2>
+            <h2>Next move</h2>
+
+            <p className="miner-game__hint">
+              Start a trial, then look at the target in the direction you want the miner to go.
+            </p>
 
             <button
               className="miner-game__primary"
-              disabled={
-                eegState !==
-                  "streaming" ||
-                game.completed ||
-                trialPhase !==
-                  "idle"
-              }
-              onClick={
-                beginTrial
-              }
+              disabled={eegState !== "streaming" || game.completed || trialPhase !== "idle"}
+              onClick={beginTrial}
               type="button"
             >
-              SELECT WITH GAZE
+              Start trial
             </button>
 
-            {eegState ===
-            "error" ? (
+            {eegState === "error" ? (
               <div className="miner-game__error">
-                <span>
-                  EEG ERROR
-                </span>
+                <span>EEG stream stopped</span>
 
-                <p>
-                  {eegError}
-                </p>
+                <p>{eegError}</p>
 
-                <button
-                  type="button"
-                  onClick={
-                    retryEEG
-                  }
-                >
-                  RETRY STREAM
+                <button type="button" onClick={retryEEG}>
+                  Reconnect stream
                 </button>
               </div>
             ) : null}
@@ -1009,117 +520,60 @@ export function MinerModule(
 
           <div className="miner-game__section">
             <div className="miner-game__section-heading">
-              <span className="miner-game__section-label">
-                SSVEP TARGETS
-              </span>
+              <h2>Target frequencies</h2>
 
-              <button
-                type="button"
-                onClick={
-                  commitFrequencies
-                }
-              >
-                APPLY
+              <button type="button" onClick={commitFrequencies}>
+                Apply
               </button>
             </div>
 
             <div className="miner-game__frequency-list">
-              {targets.map(
-                (
-                  target,
-                  index,
-                ) => (
-                  <label
-                    key={
-                      target.direction
-                    }
-                  >
-                    <span>
-                      {
-                        target.direction
-                      }
-                    </span>
+              {targets.map((target, index) => (
+                <label key={target.direction}>
+                  <span>{target.direction}</span>
 
-                    <input
-                      inputMode="decimal"
-                      value={
-                        frequencyInputs[
-                          index
-                        ]
-                      }
-                      onChange={(
-                        event,
-                      ) => {
-                        const next =
-                          [
-                            ...frequencyInputs,
-                          ];
+                  <input
+                    inputMode="decimal"
+                    value={frequencyInputs[index]}
+                    onChange={(event) => {
+                      const next = [...frequencyInputs];
 
-                        next[
-                          index
-                        ] =
-                          event.target.value;
+                      next[index] = event.target.value;
 
-                        setFrequencyInputs(
-                          next,
-                        );
-                      }}
-                    />
+                      setFrequencyInputs(next);
+                    }}
+                  />
 
-                    <small>
-                      Hz
-                    </small>
-                  </label>
-                ),
-              )}
+                  <small>Hz</small>
+                </label>
+              ))}
             </div>
           </div>
 
           <div className="miner-game__section">
-            <span className="miner-game__section-label">
-              TRIAL WINDOW
-            </span>
+            <h2>Trial length</h2>
 
             <div className="miner-game__duration">
               <button
                 type="button"
-                disabled={
-                  trialSeconds <=
-                  TAALON_MIN_TRIAL_SECONDS
-                }
+                disabled={trialSeconds <= TAALON_MIN_TRIAL_SECONDS}
                 onClick={() => {
                   setTrialSeconds(
-                    Math.max(
-                      TAALON_MIN_TRIAL_SECONDS,
-                      trialSeconds -
-                        TAALON_TRIAL_STEP_SECONDS,
-                    ),
+                    Math.max(TAALON_MIN_TRIAL_SECONDS, trialSeconds - TAALON_TRIAL_STEP_SECONDS),
                   );
                 }}
               >
                 −
               </button>
 
-              <strong>
-                {trialSeconds.toFixed(
-                  1,
-                )}{" "}
-                s
-              </strong>
+              <strong>{trialSeconds.toFixed(1)} s</strong>
 
               <button
                 type="button"
-                disabled={
-                  trialSeconds >=
-                  TAALON_MAX_TRIAL_SECONDS
-                }
+                disabled={trialSeconds >= TAALON_MAX_TRIAL_SECONDS}
                 onClick={() => {
                   setTrialSeconds(
-                    Math.min(
-                      TAALON_MAX_TRIAL_SECONDS,
-                      trialSeconds +
-                        TAALON_TRIAL_STEP_SECONDS,
-                    ),
+                    Math.min(TAALON_MAX_TRIAL_SECONDS, trialSeconds + TAALON_TRIAL_STEP_SECONDS),
                   );
                 }}
               >
@@ -1128,86 +582,49 @@ export function MinerModule(
             </div>
 
             <p className="miner-game__hint">
-              Source game default: 4.0 s.
-              Adjustable 4–10 s in 0.5 s
-              steps.
+              Default 4.0 s. Adjustable from 4 to 10 s in 0.5 s steps.
             </p>
           </div>
 
           <div className="miner-game__section">
-            <span className="miner-game__section-label">
-              LAST FBCCA
-            </span>
+            <h2>Last decision</h2>
 
             {lastDecision ? (
               <>
                 <div className="miner-game__winner">
-                  <span>
-                    {
-                      lastDecision.direction
-                    }
-                  </span>
+                  <span>{lastDecision.direction}</span>
 
-                  <strong>
-                    {lastDecision.classification.winnerHz.toFixed(
-                      2,
-                    )}{" "}
-                    Hz
-                  </strong>
+                  <strong>{lastDecision.classification.winnerHz.toFixed(2)} Hz</strong>
                 </div>
 
                 <div className="miner-game__scores">
-                  {targets.map(
-                    (
-                      target,
-                    ) => (
-                      <div
-                        key={
-                          target.direction
-                        }
-                      >
-                        <span>
-                          {
-                            target.direction
-                          }
-                        </span>
+                  {targets.map((target) => (
+                    <div key={target.direction}>
+                      <span>{target.direction}</span>
 
-                        <small>
-                          {lastDecision.classification.scores[
-                            String(
-                              target.frequencyHz,
-                            )
-                          ]?.toFixed(
-                            4,
-                          ) ??
-                            "--"}
-                        </small>
-                      </div>
-                    ),
-                  )}
+                      <small>
+                        {lastDecision.classification.scores[String(target.frequencyHz)]?.toFixed(
+                          4,
+                        ) ?? "--"}
+                      </small>
+                    </div>
+                  ))}
                 </div>
               </>
             ) : (
               <p className="miner-game__hint">
-                No SSVEP decision yet.
+                No decision yet. Run a trial to see the FBCCA scores.
               </p>
             )}
           </div>
 
-          <button
-            className="miner-game__secondary"
-            type="button"
-            onClick={
-              resetGame
-            }
-          >
-            NEW EXPEDITION
+          <button className="miner-game__secondary" type="button" onClick={resetGame}>
+            Restart game
           </button>
 
           {import.meta.env.DEV ? (
             <p className="miner-game__dev-note">
-              DEV: arrow keys move the
-              miner without EEG.
+              Development build: arrow keys move the miner without EEG.
             </p>
           ) : null}
         </aside>
@@ -1215,47 +632,28 @@ export function MinerModule(
 
       {overlayPhase ? (
         <SsvepOverlay
-          phase={
-            overlayPhase
-          }
-          targets={
-            targets
-          }
-          countdownRemaining={
-            countdownRemaining
-          }
-          trialSeconds={
-            trialSeconds
-          }
-          elapsedSeconds={
-            elapsedSeconds
-          }
-          onCancel={
-            cancelTrial
-          }
+          phase={overlayPhase}
+          targets={targets}
+          countdownRemaining={countdownRemaining}
+          trialSeconds={trialSeconds}
+          elapsedSeconds={elapsedSeconds}
+          onCancel={cancelTrial}
         />
       ) : null}
 
-      {trialPhase ===
-      "error" ? (
+      {trialPhase === "error" ? (
         <div className="miner-game__trial-error-banner">
-          <span>
-            SSVEP TRIAL ERROR
-          </span>
+          <strong>Trial failed</strong>
 
-          <p>
-            {trialError}
-          </p>
+          <p>{trialError}</p>
 
           <button
             type="button"
             onClick={() => {
-              setPhase(
-                "idle",
-              );
+              setPhase("idle");
             }}
           >
-            CLOSE
+            Close
           </button>
         </div>
       ) : null}
@@ -1263,34 +661,16 @@ export function MinerModule(
       {game.completed ? (
         <div className="miner-game__complete">
           <div className="miner-game__complete-card">
-            <span>
-              EXPEDITION COMPLETE
-            </span>
-
             <DiamondIcon />
 
-            <h2>
-              All diamonds collected
-            </h2>
+            <h2>All diamonds collected</h2>
 
             <p>
-              {
-                MINER_DIAMONDS.length
-              }{" "}
-              /{" "}
-              {
-                MINER_DIAMONDS.length
-              }{" "}
-              diamonds · {game.moves} moves
+              {MINER_DIAMONDS.length} / {MINER_DIAMONDS.length} diamonds in {game.moves} moves
             </p>
 
-            <button
-              type="button"
-              onClick={
-                resetGame
-              }
-            >
-              PLAY AGAIN
+            <button type="button" onClick={resetGame}>
+              Play again
             </button>
           </div>
         </div>

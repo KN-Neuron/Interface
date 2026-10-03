@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { eegStreamService, type EEGStreamHandle } from "../../../core/eeg";
 
-import { CortexSignalProcessor, type CortexProcessorSnapshot } from "../eeg/CortexSignalProcessor";
+import type { CortexProcessorSnapshot } from "../eeg/CortexSignalProcessor";
+
+import type { CortexWorkerRequest, CortexWorkerResponse } from "../eeg/cortexWorkerProtocol";
 
 import type { CortexEEGState } from "../models/cortex";
 
@@ -49,7 +51,8 @@ function getErrorMessage(error: unknown): string {
  * Hardware-independent Cortex EEG hook.
  *
  * Device ownership remains outside Cortex. This hook acquires the global raw
- * EEG stream and runs only visualization-specific processing/calibration.
+ * EEG stream and forwards it to a worker that runs the visualization-specific
+ * processing/calibration, keeping the main thread free for rendering.
  */
 export function useCortexEEG(): CortexEEGSnapshot {
   const [retryGeneration, setRetryGeneration] = useState(0);
@@ -61,13 +64,13 @@ export function useCortexEEG(): CortexEEGSnapshot {
   const [processorSnapshot, setProcessorSnapshot] =
     useState<CortexProcessorSnapshot>(EMPTY_PROCESSOR_SNAPSHOT);
 
-  const processorRef = useRef<CortexSignalProcessor | null>(null);
-  const lastPublishAtRef = useRef(0);
+  const workerRef = useRef<Worker | null>(null);
+
+  const send = useCallback((request: CortexWorkerRequest) => {
+    workerRef.current?.postMessage(request);
+  }, []);
 
   const retry = useCallback(() => {
-    processorRef.current = null;
-    lastPublishAtRef.current = 0;
-
     setState("starting");
     setError(null);
     setSampleRateHz(null);
@@ -79,44 +82,54 @@ export function useCortexEEG(): CortexEEGSnapshot {
   }, []);
 
   const startExperience = useCallback(() => {
-    const processor = processorRef.current;
-
-    if (!processor) {
-      return;
-    }
-
-    processor.startCalibration();
-    setProcessorSnapshot(processor.snapshot());
-  }, []);
+    send({ type: "start" });
+  }, [send]);
 
   const recalibrate = useCallback(() => {
-    const processor = processorRef.current;
-
-    if (!processor) {
-      return;
-    }
-
-    processor.startCalibration();
-    setProcessorSnapshot(processor.snapshot());
-  }, []);
+    send({ type: "start" });
+  }, [send]);
 
   const stopExperience = useCallback(() => {
-    const processor = processorRef.current;
-
-    if (!processor) {
-      return;
-    }
-
-    processor.stopExperience();
-    setProcessorSnapshot(processor.snapshot());
-  }, []);
+    send({ type: "stop" });
+  }, [send]);
 
   useEffect(() => {
     let cancelled = false;
     let handle: EEGStreamHandle | null = null;
 
-    processorRef.current = null;
-    lastPublishAtRef.current = 0;
+    const worker = new Worker(new URL("../eeg/cortexProcessorWorker.ts", import.meta.url), {
+      type: "module",
+    });
+
+    workerRef.current = worker;
+
+    worker.onmessage = (event: MessageEvent<CortexWorkerResponse>) => {
+      if (cancelled) {
+        return;
+      }
+
+      const response = event.data;
+
+      if (response.type === "snapshot") {
+        setLastSequence(response.lastSequence);
+        setProcessorSnapshot(response.snapshot);
+        return;
+      }
+
+      setState("error");
+      setError(response.message);
+    };
+
+    worker.onerror = (event) => {
+      if (cancelled) {
+        return;
+      }
+
+      setState("error");
+      setError(event.message || "Cortex processing worker failed.");
+    };
+
+    let workerReady = false;
 
     async function start(): Promise<void> {
       try {
@@ -127,28 +140,15 @@ export function useCortexEEG(): CortexEEGSnapshot {
               return;
             }
 
-            const processor = processorRef.current;
-
-            if (!processor) {
+            if (!workerReady) {
               return;
             }
 
-            try {
-              processor.processBatch(batch);
-              setLastSequence(batch.sequenceStart + batch.sampleCount - 1);
-
-              const now = performance.now();
-
-              // React state is intentionally published at about 10 Hz.
-              // Three.js performs its own frame-by-frame visual interpolation.
-              if (now - lastPublishAtRef.current >= 90) {
-                lastPublishAtRef.current = now;
-                setProcessorSnapshot(processor.snapshot());
-              }
-            } catch (processingError) {
-              setState("error");
-              setError(getErrorMessage(processingError));
-            }
+            // The worker publishes snapshots at about 10 Hz.
+            worker.postMessage({
+              type: "batch",
+              batch,
+            } satisfies CortexWorkerRequest);
           },
         });
 
@@ -159,14 +159,16 @@ export function useCortexEEG(): CortexEEGSnapshot {
 
         handle = acquiredHandle;
 
-        processorRef.current = new CortexSignalProcessor(
-          acquiredHandle.streamInfo.sampleRateHz,
-          acquiredHandle.channels.map((channel) => channel.label),
-        );
+        worker.postMessage({
+          type: "init",
+          sampleRateHz: acquiredHandle.streamInfo.sampleRateHz,
+          channelLabels: acquiredHandle.channels.map((channel) => channel.label),
+        } satisfies CortexWorkerRequest);
+
+        workerReady = true;
 
         setSampleRateHz(acquiredHandle.streamInfo.sampleRateHz);
         setChannelCount(acquiredHandle.channels.length);
-        setProcessorSnapshot(processorRef.current.snapshot());
         setState("streaming");
       } catch (startError) {
         if (cancelled) {
@@ -182,7 +184,12 @@ export function useCortexEEG(): CortexEEGSnapshot {
 
     return () => {
       cancelled = true;
-      processorRef.current = null;
+
+      worker.terminate();
+
+      if (workerRef.current === worker) {
+        workerRef.current = null;
+      }
 
       const currentHandle = handle;
       handle = null;

@@ -10,13 +10,6 @@ export {
   validateTaalonFrequencies,
 } from "./config";
 
-export {
-  SsvepClassifierService,
-  ssvepClassifierService,
-} from "./SsvepClassifierService";
+export { SsvepClassifierService, ssvepClassifierService } from "./SsvepClassifierService";
 
-export type {
-  SsvepClassification,
-  SsvepDirection,
-  SsvepTarget,
-} from "./models";
+export type { SsvepClassification, SsvepDirection, SsvepTarget } from "./models";

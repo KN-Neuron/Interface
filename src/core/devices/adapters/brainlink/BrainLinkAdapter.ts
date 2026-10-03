@@ -1,10 +1,6 @@
-import type {
-  DeviceStatus,
-} from "../../models/device";
+import type { DeviceStatus } from "../../models/device";
 
-import type {
-  EEGDeviceInfo,
-} from "../../models/eeg";
+import type { EEGDeviceInfo } from "../../models/eeg";
 
 import type {
   DeviceAdapter,
@@ -12,19 +8,11 @@ import type {
   DeviceUnsubscribe,
 } from "../../contracts/DeviceAdapter";
 
-import type {
-  BrainMetricsDeviceAdapter,
-} from "../../contracts/BrainMetricsDeviceAdapter";
+import type { BrainMetricsDeviceAdapter } from "../../contracts/BrainMetricsDeviceAdapter";
 
-import type {
-  BrainMetricsListener,
-  BrainMetricsSnapshot,
-} from "../../../brainMetrics";
+import type { BrainMetricsListener, BrainMetricsSnapshot } from "../../../brainMetrics";
 
-import {
-  BrainLinkBridge,
-  type BrainLinkBridgeLike,
-} from "./BrainLinkBridge";
+import { BrainLinkBridge, type BrainLinkBridgeLike } from "./BrainLinkBridge";
 
 const DEVICE_INFO: EEGDeviceInfo = {
   id: "brainlink-lite",
@@ -42,9 +30,7 @@ const DEVICE_INFO: EEGDeviceInfo = {
  * attention/meditation metrics instead of pretending that Neuorrun requires
  * FBCCA or BrainAccess raw EEG.
  */
-export class BrainLinkAdapter
-  implements DeviceAdapter, BrainMetricsDeviceAdapter
-{
+export class BrainLinkAdapter implements DeviceAdapter, BrainMetricsDeviceAdapter {
   readonly info: Readonly<EEGDeviceInfo> = DEVICE_INFO;
 
   private status: DeviceStatus = {
@@ -63,9 +49,7 @@ export class BrainLinkAdapter
 
   private readonly bridgeDisconnectUnsubscribe: () => void;
 
-  constructor(
-    private readonly bridge: BrainLinkBridgeLike = new BrainLinkBridge(),
-  ) {
+  constructor(private readonly bridge: BrainLinkBridgeLike = new BrainLinkBridge()) {
     this.bridgeMetricsUnsubscribe = this.bridge.subscribeMetrics((metrics) => {
       this.latestMetrics = { ...metrics };
 
@@ -74,18 +58,16 @@ export class BrainLinkAdapter
       }
     });
 
-    this.bridgeDisconnectUnsubscribe = this.bridge.subscribeDisconnected(
-      (reason) => {
-        this.latestMetrics = null;
+    this.bridgeDisconnectUnsubscribe = this.bridge.subscribeDisconnected((reason) => {
+      this.latestMetrics = null;
 
-        this.setStatus({
-          state: "error",
-          error: reason,
-          message: "BrainLink Lite Bluetooth connection was lost.",
-          updatedAt: Date.now(),
-        });
-      },
-    );
+      this.setStatus({
+        state: "error",
+        error: reason,
+        message: "BrainLink Lite Bluetooth connection was lost.",
+        updatedAt: Date.now(),
+      });
+    });
   }
 
   getStatus(): Readonly<DeviceStatus> {
@@ -188,9 +170,7 @@ export class BrainLinkAdapter
     return this.latestMetrics ? { ...this.latestMetrics } : null;
   }
 
-  subscribeBrainMetrics(
-    listener: BrainMetricsListener,
-  ): DeviceUnsubscribe {
+  subscribeBrainMetrics(listener: BrainMetricsListener): DeviceUnsubscribe {
     this.metricsListeners.add(listener);
 
     return () => {
@@ -198,9 +178,7 @@ export class BrainLinkAdapter
     };
   }
 
-  subscribeStatus(
-    listener: DeviceStatusListener,
-  ): DeviceUnsubscribe {
+  subscribeStatus(listener: DeviceStatusListener): DeviceUnsubscribe {
     this.statusListeners.add(listener);
 
     return () => {

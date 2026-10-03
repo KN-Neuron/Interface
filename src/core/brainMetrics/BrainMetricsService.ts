@@ -1,16 +1,8 @@
-import {
-  deviceManager,
-  type DeviceManager,
-} from "../devices/deviceManager";
+import { deviceManager, type DeviceManager } from "../devices/deviceManager";
 
-import {
-  isBrainMetricsDeviceAdapter,
-} from "../devices/contracts/BrainMetricsDeviceAdapter";
+import { isBrainMetricsDeviceAdapter } from "../devices/contracts/BrainMetricsDeviceAdapter";
 
-import type {
-  BrainMetricsListener,
-  BrainMetricsSnapshot,
-} from "./models";
+import type { BrainMetricsListener, BrainMetricsSnapshot } from "./models";
 
 export interface BrainMetricsHandle {
   readonly deviceId: string;
@@ -24,13 +16,9 @@ export interface BrainMetricsHandle {
  * Modules depend on this service rather than importing BrainLinkAdapter.
  */
 export class BrainMetricsService {
-  constructor(
-    private readonly manager: DeviceManager = deviceManager,
-  ) {}
+  constructor(private readonly manager: DeviceManager = deviceManager) {}
 
-  acquire(
-    listener: BrainMetricsListener,
-  ): BrainMetricsHandle {
+  acquire(listener: BrainMetricsListener): BrainMetricsHandle {
     const adapter = this.manager.getActiveAdapter();
 
     if (!adapter) {

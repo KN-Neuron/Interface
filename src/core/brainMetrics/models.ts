@@ -26,6 +26,4 @@ export interface BrainMetricsSnapshot {
   timestampMs: number;
 }
 
-export type BrainMetricsListener = (
-  snapshot: Readonly<BrainMetricsSnapshot>,
-) => void;
+export type BrainMetricsListener = (snapshot: Readonly<BrainMetricsSnapshot>) => void;

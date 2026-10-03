@@ -1,5 +1,7 @@
 import { ModuleCard } from "../modules/ModuleCard";
+import { getModuleReadiness } from "../modules/moduleReadiness";
 import { useRegisteredModules } from "../modules/useRegisteredModules";
+import { useDevice } from "../device/useDevice";
 
 interface DashboardProps {
   onOpenModule: (moduleId: string) => Promise<void>;
@@ -14,28 +16,39 @@ interface DashboardProps {
 export function Dashboard({ onOpenModule }: DashboardProps) {
   const modules = useRegisteredModules();
 
-  return (
-    <section className="dashboard">
-      <header className="dashboard__header">
-        <div>
-          <h1 className="dashboard__title">Applications</h1>
+  const { snapshot, streamInfoByDeviceId } = useDevice();
 
-          <p className="dashboard__subtitle">Choose a module to start.</p>
-        </div>
+  const streamInfo = snapshot.activeDeviceId
+    ? streamInfoByDeviceId[snapshot.activeDeviceId]
+    : undefined;
+
+  return (
+    <section className="page">
+      <header className="page__header">
+        <h1>Modules</h1>
+        <p>
+          {snapshot.activeDeviceInfo
+            ? `Connected to ${snapshot.activeDeviceInfo.name}.`
+            : "Connect a device first, then open a module."}
+        </p>
       </header>
 
       {modules.length === 0 ? (
-        <div className="dashboard-empty">
-          <h2>No modules installed</h2>
-
-          <p>Installed KNeuron modules will appear here.</p>
+        <div className="empty-state">
+          <strong>No modules installed</strong>
+          <p>Register a module in registerBuiltInModules.ts and it will appear here.</p>
         </div>
       ) : (
-        <div className="module-grid">
+        <ul className="module-list">
           {modules.map((module) => (
-            <ModuleCard key={module.manifest.id} module={module} onOpen={onOpenModule} />
+            <ModuleCard
+              key={module.manifest.id}
+              module={module}
+              readiness={getModuleReadiness(module.manifest, snapshot, streamInfo)}
+              onOpen={onOpenModule}
+            />
           ))}
-        </div>
+        </ul>
       )}
     </section>
   );

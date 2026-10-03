@@ -21,14 +21,12 @@
         "resizable": true,
         "decorations": false,
         "shadow": true,
-        "theme": "Dark",
-        "backgroundColor": "#030A12"
+        "theme": "Light",
+        "backgroundColor": "#D3D6D2"
       }
     ],
     "security": {
-      "capabilities": [
-        "main-capability"
-      ],
+      "capabilities": ["main-capability"],
       "freezePrototype": true,
       "csp": {
         "default-src": "'self'",
@@ -60,9 +58,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis"
-    ],
+    "targets": ["nsis"],
     "externalBin": [
       "binaries/brainaccess-bridge",
       "binaries/ssvep-classifier",
@@ -70,9 +66,6 @@
     ],
     "category": "DeveloperTool",
     "shortDescription": "Modular brain-computer interface platform",
-    "icon": [
-      "icons/icon.ico",
-      "icons/icon.png"
-    ]
+    "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }

@@ -1,8 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   brainMetricsService,
@@ -10,10 +6,7 @@ import {
   type BrainMetricsSnapshot,
 } from "../../../core/brainMetrics";
 
-export type NeuorrunBrainState =
-  | "starting"
-  | "live"
-  | "unavailable";
+export type NeuorrunBrainState = "starting" | "live" | "unavailable";
 
 export interface NeuorrunBrainSnapshot {
   state: NeuorrunBrainState;
@@ -29,9 +22,7 @@ function errorMessage(error: unknown): string {
 export function useBrainMetrics(): NeuorrunBrainSnapshot {
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<NeuorrunBrainState>("starting");
-  const [metrics, setMetrics] = useState<Readonly<BrainMetricsSnapshot> | null>(
-    null,
-  );
+  const [metrics, setMetrics] = useState<Readonly<BrainMetricsSnapshot> | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const retry = useCallback(() => {

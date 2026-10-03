@@ -1,16 +1,8 @@
-import {
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { describe, expect, it } from "vitest";
 
-import type {
-  BrainMetricsSnapshot,
-} from "../../../../brainMetrics";
+import type { BrainMetricsSnapshot } from "../../../../brainMetrics";
 
-import {
-  BrainLinkAdapter,
-} from "../BrainLinkAdapter";
+import { BrainLinkAdapter } from "../BrainLinkAdapter";
 
 import type {
   BrainLinkBridgeLike,

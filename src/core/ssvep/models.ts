@@ -1,8 +1,4 @@
-export type SsvepDirection =
-  | "UP"
-  | "LEFT"
-  | "RIGHT"
-  | "DOWN";
+export type SsvepDirection = "UP" | "LEFT" | "RIGHT" | "DOWN";
 
 export interface SsvepTarget {
   direction: SsvepDirection;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { APP_CONFIG } from "./config/appConfig";
 
@@ -25,6 +25,7 @@ import { closeModule, launchModule } from "./features/modules/moduleLauncher";
 import { NotificationCenter } from "./features/notifications/NotificationCenter";
 
 import { DebugPanel } from "./features/debug/DebugPanel";
+import { WelcomeScreen } from "./features/welcome/WelcomeScreen";
 
 import { logger } from "./lib/logger";
 
@@ -46,10 +47,22 @@ function getErrorMessage(error: unknown): string {
 export default function App() {
   const { settings } = useSettings();
 
+  const [showWelcome, setShowWelcome] = useState(true);
+
   const [route, setRoute] = useState<AppRoute>({
     kind: "shell",
     page: "dashboard",
   });
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setShowWelcome(false);
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, []);
 
   async function handleOpenModule(moduleId: string): Promise<void> {
     try {
@@ -171,21 +184,25 @@ export default function App() {
     }
   }
 
-  const activeSidebarPage: ShellPage = route.kind === "shell" ? route.page : "dashboard";
+  const activeSidebarPage: ShellPage | null = route.kind === "shell" ? route.page : null;
 
   const isModuleOpen = route.kind === "module";
 
   const shellClassName = isModuleOpen ? "app-shell app-shell--module-open" : "app-shell";
 
+  if (showWelcome) {
+    return <WelcomeScreen />;
+  }
+
   return (
     <div className={shellClassName}>
-      <TitleBar />
-
-      <Sidebar page={activeSidebarPage} onNavigate={handleShellNavigation} />
+      <TitleBar>
+        <Sidebar page={activeSidebarPage} onNavigate={handleShellNavigation} />
+      </TitleBar>
 
       <main className="main-content">{renderContent()}</main>
 
-      <DevicePanel />
+      <DevicePanel paused={isModuleOpen} onOpenDevices={() => handleShellNavigation("device")} />
 
       <NotificationCenter />
 

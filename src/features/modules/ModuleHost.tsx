@@ -27,13 +27,11 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
       <section className="module-host">
         <header className="module-host__toolbar">
           <button type="button" className="secondary-button" onClick={onBack}>
-            Back to Dashboard
+            Back to modules
           </button>
         </header>
 
         <div className="module-host__fallback">
-          <span className="eyebrow">KNEURON MODULE</span>
-
           <h1>Module unavailable</h1>
 
           <p>The requested module is not registered.</p>
@@ -53,13 +51,11 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
       <section className="module-host">
         <header className="module-host__toolbar">
           <button type="button" className="secondary-button" onClick={onBack}>
-            Back to Dashboard
+            Back to modules
           </button>
         </header>
 
         <div className="module-host__fallback">
-          <span className="eyebrow">KNEURON MODULE</span>
-
           <h1>{registeredModule.manifest.name}</h1>
 
           <p>{registeredModule.manifest.description}</p>
@@ -81,13 +77,13 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
     <section className="module-host module-host--active">
       <header className="module-host__toolbar">
         <button type="button" className="secondary-button" onClick={onBack}>
-          Back to Dashboard
+          Back to modules
         </button>
 
         <div className="module-host__identity">
           <span>{registeredModule.manifest.name}</span>
 
-          <code>v{registeredModule.manifest.version}</code>
+          <span className="module-host__version">{registeredModule.manifest.version}</span>
         </div>
       </header>
 

@@ -23,6 +23,8 @@
     "quality:full": "npm run quality && cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-semi-condensed": "^5.3.0",
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-shell": "^2.4.0",
     "lucide-react": "^0.468.0",
@@ -46,7 +48,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
-    "globals": "^17.12.0",
+    "globals": "^17.13.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.9",
     "typescript": "~5.6.3",

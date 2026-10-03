@@ -1,24 +1,14 @@
 import type { DeviceStatus } from "../../models/device";
 
-import type {
-  EEGChannelInfo,
-  EEGDeviceInfo,
-  EEGStreamInfo,
-} from "../../models/eeg";
+import type { EEGChannelInfo, EEGDeviceInfo, EEGStreamInfo } from "../../models/eeg";
 
-import type {
-  DeviceStatusListener,
-  DeviceUnsubscribe,
-} from "../../contracts/DeviceAdapter";
+import type { DeviceStatusListener, DeviceUnsubscribe } from "../../contracts/DeviceAdapter";
 
 import type { EEGDeviceAdapter } from "../../contracts/EEGDeviceAdapter";
 
 import type { EEGSampleBatchListener } from "../../../eeg/models";
 
-import {
-  BrainAccessBridge,
-  type BrainAccessBridgeLike,
-} from "./BrainAccessBridge";
+import { BrainAccessBridge, type BrainAccessBridgeLike } from "./BrainAccessBridge";
 
 const DEVICE_NAME = "BA MAXI 009";
 
@@ -108,8 +98,7 @@ const BRAINACCESS_MAXI_EEG_LABELS = [
 function buildChannels(channelCount: number): EEGChannelInfo[] {
   return Array.from({ length: channelCount }, (_, sourceIndex) => {
     const label =
-      BRAINACCESS_MAXI_EEG_LABELS[sourceIndex] ??
-      `Ch${String(sourceIndex + 1).padStart(2, "0")}`;
+      BRAINACCESS_MAXI_EEG_LABELS[sourceIndex] ?? `Ch${String(sourceIndex + 1).padStart(2, "0")}`;
 
     return {
       index: sourceIndex,
@@ -159,9 +148,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
 
   private readonly bridgeDisconnectUnsubscribe: () => void;
 
-  constructor(
-    private readonly bridge: BrainAccessBridgeLike = new BrainAccessBridge(),
-  ) {
+  constructor(private readonly bridge: BrainAccessBridgeLike = new BrainAccessBridge()) {
     this.bridgeSampleUnsubscribe = this.bridge.subscribeSamples((batch) => {
       if (!this.streaming) {
         return;
@@ -172,18 +159,16 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
       }
     });
 
-    this.bridgeDisconnectUnsubscribe = this.bridge.subscribeDisconnected(
-      (reason) => {
-        this.streaming = false;
+    this.bridgeDisconnectUnsubscribe = this.bridge.subscribeDisconnected((reason) => {
+      this.streaming = false;
 
-        this.setStatus({
-          state: "error",
-          error: reason,
-          message: "BrainAccess Bluetooth connection was lost.",
-          updatedAt: Date.now(),
-        });
-      },
-    );
+      this.setStatus({
+        state: "error",
+        error: reason,
+        message: "BrainAccess Bluetooth connection was lost.",
+        updatedAt: Date.now(),
+      });
+    });
   }
 
   getStatus(): Readonly<DeviceStatus> {
@@ -211,14 +196,9 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
       const target = devices.find((device) => device.name === DEVICE_NAME);
 
       if (!target) {
-        const found =
-          devices.length > 0
-            ? devices.map((device) => device.name).join(", ")
-            : "none";
+        const found = devices.length > 0 ? devices.map((device) => device.name).join(", ") : "none";
 
-        throw new Error(
-          `BrainAccess device "${DEVICE_NAME}" was not found. Discovered: ${found}.`,
-        );
+        throw new Error(`BrainAccess device "${DEVICE_NAME}" was not found. Discovered: ${found}.`);
       }
 
       this.setStatus({
@@ -314,9 +294,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
 
   async getStreamInfo(): Promise<Readonly<EEGStreamInfo>> {
     if (!this.streamInfo) {
-      throw new Error(
-        "BrainAccess stream metadata is available after the device connects.",
-      );
+      throw new Error("BrainAccess stream metadata is available after the device connects.");
     }
 
     return {
@@ -338,9 +316,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
     }
 
     if (this.status.state !== "connected") {
-      throw new Error(
-        "BrainAccess MAXI 009 must be connected before streaming can start.",
-      );
+      throw new Error("BrainAccess MAXI 009 must be connected before streaming can start.");
     }
 
     this.streaming = true;

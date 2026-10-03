@@ -111,50 +111,23 @@ describe("BrainAccessEEGAdapter", () => {
       type: "eeg",
     });
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "AF3")
-        ?.sourceIndex,
-    ).toBe(0);
+    expect(streamInfo.channels.find((channel) => channel.label === "AF3")?.sourceIndex).toBe(0);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "AFz")
-        ?.sourceIndex,
-    ).toBe(1);
+    expect(streamInfo.channels.find((channel) => channel.label === "AFz")?.sourceIndex).toBe(1);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "AF4")
-        ?.sourceIndex,
-    ).toBe(2);
+    expect(streamInfo.channels.find((channel) => channel.label === "AF4")?.sourceIndex).toBe(2);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "PO3")
-        ?.sourceIndex,
-    ).toBe(26);
+    expect(streamInfo.channels.find((channel) => channel.label === "PO3")?.sourceIndex).toBe(26);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "POz")
-        ?.sourceIndex,
-    ).toBe(27);
+    expect(streamInfo.channels.find((channel) => channel.label === "POz")?.sourceIndex).toBe(27);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "PO4")
-        ?.sourceIndex,
-    ).toBe(28);
+    expect(streamInfo.channels.find((channel) => channel.label === "PO4")?.sourceIndex).toBe(28);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "O1")
-        ?.sourceIndex,
-    ).toBe(29);
+    expect(streamInfo.channels.find((channel) => channel.label === "O1")?.sourceIndex).toBe(29);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "Oz")
-        ?.sourceIndex,
-    ).toBe(30);
+    expect(streamInfo.channels.find((channel) => channel.label === "Oz")?.sourceIndex).toBe(30);
 
-    expect(
-      streamInfo.channels.find((channel) => channel.label === "O2")
-        ?.sourceIndex,
-    ).toBe(31);
+    expect(streamInfo.channels.find((channel) => channel.label === "O2")?.sourceIndex).toBe(31);
   });
 
   it("maps all 32 streamed EEG channels to unique electrode labels", async () => {

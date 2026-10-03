@@ -1,6 +1,12 @@
-import type { DeviceInfo, DeviceStatus } from "../../core/devices/models/device";
+import type { DeviceInfo, DeviceStatus, DeviceTransport } from "../../core/devices/models/device";
 
 import type { EEGStreamInfo } from "../../core/devices/models/eeg";
+
+import { deviceRegistry } from "../../core/devices/deviceRegistry";
+
+import { isEEGDeviceAdapter } from "../../core/devices/contracts/deviceGuards";
+
+import { isBrainMetricsDeviceAdapter } from "../../core/devices/contracts/BrainMetricsDeviceAdapter";
 
 interface DeviceCardProps {
   device: Readonly<DeviceInfo>;
@@ -18,12 +24,33 @@ interface DeviceCardProps {
   onDisconnect: () => void;
 }
 
-function formatDeviceKind(kind: string): string {
-  return kind.replace("-", " ").toUpperCase();
-}
+const TRANSPORT_LABEL: Record<DeviceTransport, string> = {
+  simulation: "Simulated",
+  bluetooth: "Bluetooth",
+  usb: "USB",
+  serial: "Serial",
+  network: "Network",
+  lsl: "LSL",
+  other: "Other",
+};
 
-function formatTransport(transport: string): string {
-  return transport.replace("-", " ").toUpperCase();
+function describeSignal(
+  deviceId: string,
+  streamInfo: Readonly<EEGStreamInfo> | undefined,
+): string | null {
+  const adapter = deviceRegistry.get(deviceId);
+
+  if (adapter && isEEGDeviceAdapter(adapter)) {
+    return streamInfo
+      ? `Raw EEG, ${streamInfo.channels.length} channels at ${streamInfo.sampleRateHz} Hz`
+      : "Raw EEG";
+  }
+
+  if (adapter && isBrainMetricsDeviceAdapter(adapter)) {
+    return "Attention and meditation metrics";
+  }
+
+  return null;
 }
 
 export function DeviceCard({
@@ -43,85 +70,49 @@ export function DeviceCard({
 
   const buttonDisabled = busy || connecting || disconnecting;
 
+  const state = active ? status.state : "disconnected";
+
+  const signal = describeSignal(device.id, streamInfo);
+
   return (
-    <article className={active ? "device-card device-card--active" : "device-card"}>
-      <header className="device-card__header">
-        <div>
-          <span className="eyebrow">{formatDeviceKind(device.kind)}</span>
+    <li className={active ? "device-row is-active" : "device-row"}>
+      <span className={`led led--${state}`} role="img" aria-label={state} />
 
-          <h2>{device.name}</h2>
-        </div>
+      <div className="device-row__body">
+        <h2>{device.name}</h2>
 
-        <span className={`device-status device-status--${status.state}`}>{status.state}</span>
-      </header>
+        <p className="device-row__identity">
+          {[device.manufacturer, device.model, TRANSPORT_LABEL[device.transport]]
+            .filter(Boolean)
+            .join(", ")}
+        </p>
 
-      <div className="device-card__identity">
-        <span>{device.manufacturer ?? "Unknown manufacturer"}</span>
+        {signal && <p className="device-row__signal">{signal}</p>}
 
-        {device.model && (
-          <>
-            <span>·</span>
+        {active && status.message && <p className="device-row__message">{status.message}</p>}
 
-            <span>{device.model}</span>
-          </>
-        )}
+        {active && status.error && <p className="device-row__error">{status.error}</p>}
       </div>
 
-      <div className="device-card__metadata">
-        <div>
-          <span>Type</span>
-
-          <strong>{formatDeviceKind(device.kind)}</strong>
-        </div>
-
-        <div>
-          <span>Transport</span>
-
-          <strong>{formatTransport(device.transport)}</strong>
-        </div>
-
-        {streamInfo && (
-          <>
-            <div>
-              <span>Sampling rate</span>
-
-              <strong>{streamInfo.sampleRateHz} Hz</strong>
-            </div>
-
-            <div>
-              <span>Channels</span>
-
-              <strong>{streamInfo.channels.length}</strong>
-            </div>
-          </>
-        )}
-      </div>
-
-      {active && status.message && <p className="device-card__message">{status.message}</p>}
-
-      {active && status.error && <p className="device-card__error">{status.error}</p>}
-
-      <footer className="device-card__actions">
-        {connected ? (
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={buttonDisabled}
-            onClick={onDisconnect}
-          >
-            Disconnect
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="primary-button"
-            disabled={buttonDisabled}
-            onClick={onConnect}
-          >
-            {connecting ? "Connecting..." : "Connect"}
-          </button>
-        )}
-      </footer>
-    </article>
+      {connected ? (
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={buttonDisabled}
+          onClick={onDisconnect}
+        >
+          Disconnect
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="primary-button"
+          disabled={buttonDisabled}
+          onClick={onConnect}
+        >
+          {connecting ? "Connecting…" : "Connect"}
+        </button>
+      )}
+    </li>
   );
 }

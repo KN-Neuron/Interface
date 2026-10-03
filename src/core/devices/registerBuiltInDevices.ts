@@ -1,29 +1,31 @@
-import {
-  BrainAccessEEGAdapter,
-} from "./adapters/brainaccess/BrainAccessEEGAdapter";
+import { BrainAccessEEGAdapter } from "./adapters/brainaccess/BrainAccessEEGAdapter";
 
-import {
-  BrainLinkAdapter,
-} from "./adapters/brainlink/BrainLinkAdapter";
+import { BrainLinkAdapter } from "./adapters/brainlink/BrainLinkAdapter";
 
-import type {
-  DeviceAdapter,
-} from "./contracts/DeviceAdapter";
+import { SimulationBrainMetricsAdapter } from "./adapters/simulation/SimulationBrainMetricsAdapter";
 
-import {
-  deviceRegistry,
-} from "./deviceRegistry";
+import { SimulationEEGAdapter } from "./adapters/simulation/SimulationEEGAdapter";
+
+import type { DeviceAdapter } from "./contracts/DeviceAdapter";
+
+import { deviceRegistry } from "./deviceRegistry";
+
+import { APP_CONFIG } from "../../config/appConfig";
 
 /**
  * Production hardware bundled with KNeuron.
  *
- * Simulation EEG was intentionally removed from the production Device page.
+ * Simulation devices are registered only in development builds so the UI
+ * and modules can be worked on without physical hardware.
  */
 function createBuiltInDevices(): DeviceAdapter[] {
-  return [
-    new BrainAccessEEGAdapter(),
-    new BrainLinkAdapter(),
-  ];
+  const devices: DeviceAdapter[] = [new BrainAccessEEGAdapter(), new BrainLinkAdapter()];
+
+  if (APP_CONFIG.enableSimulationDevices) {
+    devices.push(new SimulationEEGAdapter(), new SimulationBrainMetricsAdapter());
+  }
+
+  return devices;
 }
 
 export function registerBuiltInDevices(): void {

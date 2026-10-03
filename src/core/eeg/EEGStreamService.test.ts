@@ -56,7 +56,8 @@ describe("EEGStreamService", () => {
 
     await handle.release();
 
-    expect(service.isStreaming()).toBe(false);
+    // The physical EEG stream remains active while the device is connected.
+    expect(service.isStreaming()).toBe(true);
   });
 
   it("allows selecting six channels from a 32-channel stream", async () => {
@@ -95,7 +96,8 @@ describe("EEGStreamService", () => {
 
     await second.release();
 
-    expect(adapter.isStreaming()).toBe(false);
+    // Releasing the last consumer does not stop the physical device stream.
+    expect(adapter.isStreaming()).toBe(true);
   });
 
   it("delivers only selected channels to a consumer", async () => {

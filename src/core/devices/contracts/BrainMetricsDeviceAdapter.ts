@@ -1,12 +1,6 @@
-import type {
-  BrainMetricsListener,
-  BrainMetricsSnapshot,
-} from "../../brainMetrics/models";
+import type { BrainMetricsListener, BrainMetricsSnapshot } from "../../brainMetrics/models";
 
-import type {
-  DeviceAdapter,
-  DeviceUnsubscribe,
-} from "./DeviceAdapter";
+import type { DeviceAdapter, DeviceUnsubscribe } from "./DeviceAdapter";
 
 /**
  * Optional capability implemented by devices that expose already-computed
@@ -18,9 +12,7 @@ import type {
 export interface BrainMetricsDeviceAdapter extends DeviceAdapter {
   getLatestBrainMetrics(): Readonly<BrainMetricsSnapshot> | null;
 
-  subscribeBrainMetrics(
-    listener: BrainMetricsListener,
-  ): DeviceUnsubscribe;
+  subscribeBrainMetrics(listener: BrainMetricsListener): DeviceUnsubscribe;
 }
 
 export function isBrainMetricsDeviceAdapter(

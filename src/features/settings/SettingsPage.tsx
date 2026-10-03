@@ -29,13 +29,11 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="settings-page">
-      <header className="settings-page__header">
-        <span className="eyebrow">KNEURON</span>
-
+    <section className="page settings-page">
+      <header className="page__header">
         <h1>Settings</h1>
 
-        <p>Configure global KNeuron application behaviour.</p>
+        <p>Apply to the whole application. Each module keeps its own options.</p>
       </header>
 
       {/* GENERAL */}
@@ -43,8 +41,6 @@ export function SettingsPage() {
       <section className="settings-section">
         <div className="settings-section__heading">
           <h2>General</h2>
-
-          <p>Global behaviour of the KNeuron desktop application.</p>
         </div>
 
         <div className="settings-panel">
@@ -75,7 +71,7 @@ export function SettingsPage() {
           <div className="settings-section__heading">
             <h2>Developer</h2>
 
-            <p>Development and diagnostic information.</p>
+            <p>Shown only in development builds.</p>
           </div>
 
           <div className="settings-panel">
@@ -105,8 +101,6 @@ export function SettingsPage() {
       <section className="settings-section">
         <div className="settings-section__heading">
           <h2>About</h2>
-
-          <p>Application and licensing information.</p>
         </div>
 
         <div className="settings-panel">
@@ -114,7 +108,7 @@ export function SettingsPage() {
             <div>
               <strong>{APP_CONFIG.name}</strong>
 
-              <span>Modular Brain-Computer Interface</span>
+              <span>Desktop shell version</span>
             </div>
 
             <code>v{APP_CONFIG.version}</code>
@@ -124,7 +118,7 @@ export function SettingsPage() {
             <div>
               <strong>Environment</strong>
 
-              <span>Current application runtime environment.</span>
+              <span>Build this window is running.</span>
             </div>
 
             <code>{APP_CONFIG.isDevelopment ? "Development" : "Production"}</code>
@@ -134,7 +128,7 @@ export function SettingsPage() {
             <div>
               <strong>License</strong>
 
-              <span>License governing this KNeuron build.</span>
+              <span>Distribution terms.</span>
             </div>
 
             <code>{APP_CONFIG.license}</code>

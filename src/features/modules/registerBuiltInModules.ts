@@ -1,37 +1,19 @@
-import {
-  cortexModuleDefinition,
-} from "../../modules/cortex/cortexModuleDefinition";
+import { cortexModuleDefinition } from "../../modules/cortex/cortexModuleDefinition";
 
-import {
-  minerModuleDefinition,
-} from "../../modules/miner/minerModuleDefinition";
+import { minerModuleDefinition } from "../../modules/miner/minerModuleDefinition";
 
-import {
-  neuorrunModuleDefinition,
-} from "../../modules/neuorrun/neuorrunModuleDefinition";
+import { neuorrunModuleDefinition } from "../../modules/neuorrun/neuorrunModuleDefinition";
 
-import {
-  moduleRegistry,
-} from "../../lib/moduleRegistry";
+import { moduleRegistry } from "../../lib/moduleRegistry";
 
-import {
-  moduleComponentRegistry,
-} from "./moduleComponentRegistry";
+import { moduleComponentRegistry } from "./moduleComponentRegistry";
 
-import {
-  registerModuleDefinition,
-} from "./registerModuleDefinition";
+import { registerModuleDefinition } from "./registerModuleDefinition";
 
-import type {
-  KNeuronModuleDefinition,
-} from "./moduleDefinition";
+import type { KNeuronModuleDefinition } from "./moduleDefinition";
 
 function createBuiltInModules(): KNeuronModuleDefinition[] {
-  return [
-    cortexModuleDefinition,
-    minerModuleDefinition,
-    neuorrunModuleDefinition,
-  ];
+  return [cortexModuleDefinition, minerModuleDefinition, neuorrunModuleDefinition];
 }
 
 export function registerBuiltInModules(): void {
@@ -47,9 +29,7 @@ export function registerBuiltInModules(): void {
     }
 
     if (manifestExists !== componentExists) {
-      throw new Error(
-        `Inconsistent module registration state for "${moduleId}".`,
-      );
+      throw new Error(`Inconsistent module registration state for "${moduleId}".`);
     }
 
     registerModuleDefinition(definition);

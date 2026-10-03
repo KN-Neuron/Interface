@@ -1,196 +1,196 @@
+/* Neuorrun: light telemetry strip above the game, game on a dark screen.
+   Uses the shell tokens from src/styles/app.css. */
+
 .neuorrun-module {
   display: flex;
   flex-direction: column;
+
   width: 100%;
   height: 100%;
   min-height: 0;
-  color: #edf5ff;
-  background: #02070c;
-  overflow: hidden;
+
+  gap: 12px;
+
+  color: var(--ink);
 }
 
 .neuorrun-module__bar {
-  position: relative;
-  z-index: 5;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
+
   gap: 24px;
-  min-height: 66px;
-  padding: 10px 16px 10px 20px;
-  border-bottom: 1px solid #17324a;
-  background: #06111c;
-}
+  padding: 10px 16px;
 
-.neuorrun-module__bar > div:first-child {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.neuorrun-module__bar strong {
-  font-size: 19px;
-  font-weight: 650;
-}
-
-.neuorrun-module__eyebrow {
-  color: #168cff;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  background: var(--face);
+  border: 1px solid var(--groove);
+  border-radius: var(--radius-panel);
 }
 
 .neuorrun-module__telemetry {
   display: flex;
-  align-items: stretch;
-  gap: 0;
-  min-width: 0;
-  border: 1px solid #18334c;
-  background: #040c13;
+
+  gap: 32px;
+  margin: 0;
 }
 
-.neuorrun-module__telemetry > div {
-  display: flex;
-  min-width: 105px;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 8px 12px;
-  border-right: 1px solid #18334c;
+.neuorrun-module__telemetry dt {
+  color: var(--ink-2);
+  font-size: 13px;
 }
 
-.neuorrun-module__telemetry small {
-  color: #6f879d;
-  font-size: 8px;
-  letter-spacing: 0.12em;
+.neuorrun-module__telemetry dd {
+  margin: 0;
+
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
 }
 
-.neuorrun-module__telemetry span {
-  color: #ddecfa;
-  font-size: 11px;
-  font-weight: 650;
+.neuorrun-module__telemetry dd.is-live {
+  color: var(--led-on);
 }
 
-.neuorrun-module__telemetry span.is-live {
-  color: #28d79b;
-}
+.neuorrun-module__hint {
+  max-width: 34ch;
 
-.neuorrun-module__telemetry button,
-.neuorrun-module__brain-warning button {
-  border: 0;
-  color: #dbeeff;
-  background: #0b68d8;
-  padding: 0 16px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 13px;
+  text-align: right;
 }
 
 .neuorrun-module__stage {
   position: relative;
+
   flex: 1;
   min-height: 0;
+
   background: #000;
+  border: 1px solid var(--screen-edge);
+  border-radius: 4px;
+  box-shadow: inset 0 2px 6px rgb(0 0 0 / 55%);
+
   overflow: hidden;
 }
 
 .neuorrun-module__canvas {
   display: block;
+
   width: 100%;
   height: 100%;
-  outline: none;
+
   background: #000;
+  outline: none;
 }
 
 .neuorrun-module__overlay {
   position: absolute;
   z-index: 10;
   inset: 0;
+
   display: grid;
   place-content: center;
   justify-items: center;
+
   padding: 32px;
-  color: #dcecff;
-  background: rgba(2, 7, 12, 0.94);
+
+  color: #e3ece8;
+  background: var(--screen);
   text-align: center;
 }
 
-.neuorrun-module__overlay > span {
-  color: #168cff;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.17em;
-}
-
 .neuorrun-module__overlay h2 {
-  margin: 10px 0 8px;
-  font-size: 26px;
+  font-family: var(--font-display);
+  font-size: 28px;
   font-weight: 600;
 }
 
 .neuorrun-module__overlay p {
-  max-width: 580px;
-  margin: 0;
-  color: #8099ad;
-  font-size: 12px;
-  line-height: 1.6;
+  max-width: 58ch;
+  margin-top: 8px;
+
+  color: var(--screen-label);
 }
 
-.neuorrun-module__overlay--error > span,
-.neuorrun-module__overlay--error p {
-  color: #ff93a1;
+.neuorrun-module__overlay--error h2 {
+  color: #ff8a80;
 }
 
 .neuorrun-module__progress {
-  width: min(480px, 70vw);
-  height: 5px;
-  margin: 20px 0 9px;
-  background: #112334;
+  width: min(420px, 70vw);
+  height: 4px;
+
+  margin-top: 20px;
+
+  background: var(--screen-grid);
+  border-radius: 2px;
+
   overflow: hidden;
 }
 
 .neuorrun-module__progress > div {
   height: 100%;
-  background: #168cff;
+
+  background: var(--trace);
+
   transition: width 120ms linear;
 }
 
 .neuorrun-module__brain-warning {
   position: absolute;
   z-index: 8;
-  right: 18px;
-  bottom: 18px;
+  right: 16px;
+  bottom: 16px;
+
   display: grid;
-  grid-template-columns: auto minmax(220px, 420px) auto;
+  grid-template-columns: minmax(220px, 380px) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 10px 10px 14px;
-  border: 1px solid #6e5522;
-  color: #f4d99a;
-  background: rgba(30, 23, 8, 0.94);
-  box-shadow: 0 14px 45px rgba(0, 0, 0, 0.45);
+
+  gap: 4px 16px;
+  padding: 12px 12px 12px 16px;
+
+  color: var(--ink);
+  background: var(--face-raised);
+  border: 1px solid var(--groove);
+  border-left: 3px solid var(--led-busy);
+  border-radius: var(--radius-control);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
 }
 
 .neuorrun-module__brain-warning strong {
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  grid-column: 1;
+  font-weight: 600;
 }
 
 .neuorrun-module__brain-warning span {
-  color: #baa979;
-  font-size: 10px;
-  line-height: 1.4;
+  grid-column: 1;
+
+  color: var(--ink-2);
+  font-size: 14px;
 }
 
 .neuorrun-module__brain-warning button {
-  min-height: 32px;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+
+  height: 34px;
+
+  padding: 0 14px;
+
+  color: var(--face-raised);
+  background: var(--ink);
+  border: 0;
+  border-radius: var(--radius-control);
+
+  font-weight: 600;
+
+  cursor: pointer;
 }
 
 @media (max-width: 1100px) {
-  .neuorrun-module__telemetry > div:nth-child(3),
-  .neuorrun-module__telemetry > div:nth-child(4) {
+  .neuorrun-module__hint {
     display: none;
   }
 }

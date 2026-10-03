@@ -4,8 +4,4 @@ export {
   type BrainMetricsHandle,
 } from "./BrainMetricsService";
 
-export type {
-  BrainBandPowers,
-  BrainMetricsListener,
-  BrainMetricsSnapshot,
-} from "./models";
+export type { BrainBandPowers, BrainMetricsListener, BrainMetricsSnapshot } from "./models";

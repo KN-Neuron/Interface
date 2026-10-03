@@ -1,6 +1,4 @@
-export {
-  BrainLinkAdapter,
-} from "./BrainLinkAdapter";
+export { BrainLinkAdapter } from "./BrainLinkAdapter";
 
 export {
   BrainLinkBridge,
