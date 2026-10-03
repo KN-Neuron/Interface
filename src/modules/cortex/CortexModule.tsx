@@ -10,7 +10,9 @@ import {
   CORTEX_WARMUP_SECONDS,
 } from "./eeg/CortexSignalProcessor";
 import { useCortexEEG } from "./hooks/useCortexEEG";
-import { CortexRenderer } from "./rendering/CortexRenderer";
+import { CortexRenderer, type CortexView } from "./rendering/CortexRenderer";
+import { PanelResizer } from "../../components/PanelResizer";
+import { usePanelSize } from "../../lib/usePanelSize";
 import { cloneDefaultCortexElectrodes } from "./models/defaultElectrodeLayout";
 import type {
   CortexBand,
@@ -80,6 +82,22 @@ function loadSavedElectrodes(): CortexElectrode[] {
     return cloneDefaultCortexElectrodes();
   }
 }
+
+const CAMERA_VIEWS: ReadonlyArray<{ view: CortexView; label: string }> = [
+  { view: "top", label: "Top" },
+  { view: "front", label: "Front" },
+  { view: "back", label: "Back" },
+  { view: "left", label: "Left" },
+  { view: "right", label: "Right" },
+];
+
+const BAND_NAMES: Record<CortexBand, string> = {
+  delta: "Delta",
+  theta: "Theta",
+  alpha: "Alpha",
+  beta: "Beta",
+  gamma: "Gamma",
+};
 
 function formatEEGState(state: string): string {
   return state.charAt(0).toUpperCase() + state.slice(1);
@@ -188,6 +206,13 @@ export function CortexModule(_props: KNeuronModuleProps) {
   const [deformation, setDeformation] = useState(0.2);
   const [meshLinesVisible, setMeshLinesVisible] = useState(false);
   const [editMode, setEditMode] = useState(false);
+
+  const controlsPanel = usePanelSize({
+    storageKey: "kneuron.panel.cortex-controls",
+    defaultWidth: 320,
+    minWidth: 260,
+    maxWidth: 520,
+  });
   const [labelsVisible, setLabelsVisible] = useState(true);
   const [electrodes, setElectrodes] = useState<CortexElectrode[]>(loadSavedElectrodes);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -278,7 +303,16 @@ export function CortexModule(_props: KNeuronModuleProps) {
   }
 
   return (
-    <section className="cortex-module">
+    <section
+      className={
+        controlsPanel.collapsed
+          ? "cortex-module cortex-module--controls-collapsed"
+          : "cortex-module"
+      }
+      style={{
+        ["--controls-width" as string]: `${controlsPanel.collapsed ? 0 : controlsPanel.width}px`,
+      }}
+    >
       <div className="cortex-stage">
         <CortexViewport
           initialElectrodes={electrodes}
@@ -314,6 +348,33 @@ export function CortexModule(_props: KNeuronModuleProps) {
           {eeg.started && <span>{processingStatus}</span>}
         </div>
 
+        <div
+          className="cortex-overlay cortex-views"
+          role="group"
+          aria-label="Camera view"
+          title="Double-click the brain to return to the top view"
+        >
+          {CAMERA_VIEWS.map(({ view, label }) => (
+            <button key={view} type="button" onClick={() => rendererRef.current?.setView(view)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {eeg.started && (
+          <div className="cortex-overlay cortex-legend">
+            <span className="cortex-legend__title">
+              {visualMode === "fast" ? "Activity" : `${BAND_NAMES[selectedBand]} power`} vs.
+              baseline
+            </span>
+            <span className="cortex-legend__bar" aria-hidden="true" />
+            <span className="cortex-legend__scale">
+              <span>At baseline</span>
+              <span>Strongest</span>
+            </span>
+          </div>
+        )}
+
         {calibration.visible && (
           <div className="cortex-calibration-overlay">
             <div className="cortex-calibration-card">
@@ -337,6 +398,8 @@ export function CortexModule(_props: KNeuronModuleProps) {
           </div>
         )}
       </div>
+
+      <PanelResizer panel={controlsPanel} label="Cortex controls" />
 
       <aside className="cortex-controls">
         <section className="cortex-control-section">

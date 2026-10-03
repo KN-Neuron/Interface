@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { KNeuronModuleProps } from "../../features/modules/moduleDefinition";
 
+import { PanelResizer } from "../../components/PanelResizer";
+
+import { usePanelSize } from "../../lib/usePanelSize";
+
 import {
   ssvepClassifierService,
   TAALON_COUNTDOWN_SECONDS,
@@ -62,6 +66,13 @@ export function MinerModule(_props: KNeuronModuleProps) {
   } = useMinerEEG();
 
   const [game, setGame] = useState(createInitialMinerGame);
+
+  const controlsPanel = usePanelSize({
+    storageKey: "kneuron.panel.miner-controls",
+    defaultWidth: 320,
+    minWidth: 260,
+    maxWidth: 520,
+  });
 
   const [message, setMessage] = useState(
     "Collect every diamond. One SSVEP decision equals one movement attempt.",
@@ -373,7 +384,16 @@ export function MinerModule(_props: KNeuronModuleProps) {
 
   return (
     <section className="miner-game">
-      <div className="miner-game__layout">
+      <div
+        className={
+          controlsPanel.collapsed
+            ? "miner-game__layout miner-game__layout--controls-collapsed"
+            : "miner-game__layout"
+        }
+        style={{
+          ["--controls-width" as string]: `${controlsPanel.collapsed ? 0 : controlsPanel.width}px`,
+        }}
+      >
         <main className="miner-game__board-panel">
           <div className="miner-game__mission-bar">
             <div>
@@ -479,6 +499,8 @@ export function MinerModule(_props: KNeuronModuleProps) {
             </span>
           </div>
         </main>
+
+        <PanelResizer panel={controlsPanel} label="game controls" />
 
         <aside className="miner-game__control-panel">
           <div className="miner-game__section">
