@@ -1,0 +1,91 @@
+name: KNeuron CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  frontend:
+    name: Frontend quality checks
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npx prettier . --check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  sidecars:
+    name: Python sidecar tests
+    runs-on: windows-latest
+
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            brainaccess-sidecar/requirements.txt
+            brainlink-sidecar/requirements.txt
+            ssvep-sidecar/requirements.txt
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      # Unit tests do not require real BrainAccess hardware or the
+      # BrainAccess vendor SDK. The SDK is mocked by the test suite.
+      #
+      # We therefore install only the Python packages actually required
+      # to execute the tests in CI.
+      - name: Install test dependencies
+        run: |
+          python -m pip install "numpy>=2.0,<3"
+          python -m pip install "scipy>=1.14,<2"
+          python -m pip install "scikit-learn>=1.5,<2"
+          python -m pip install "pyserial>=3.5,<4"
+
+      - name: Test BrainAccess sidecar
+        working-directory: brainaccess-sidecar
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Test BrainLink sidecar
+        working-directory: brainlink-sidecar
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Test SSVEP sidecar
+        working-directory: ssvep-sidecar
+        run: python -m unittest discover -s tests -p "test_*.py" -v
