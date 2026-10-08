@@ -1,15 +1,19 @@
+import { LayoutGrid, Monitor, Settings } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+import { APP_CONFIG } from "../config/appConfig";
 import type { ShellPage } from "../types/navigation";
 
-const items: Array<{ id: ShellPage; label: string }> = [
-  { id: "dashboard", label: "Modules" },
-  { id: "device", label: "Devices" },
-  { id: "settings", label: "Settings" },
+const items: Array<{ id: ShellPage; label: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+  { id: "device", label: "Device", icon: Monitor },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 /**
- * Main navigation, rendered as a mode selector inside the title bar.
+ * Left navigation with the app version at the bottom.
  *
- * `page` is null while a module is open, so no mode appears selected.
+ * `page` is null while a module is open, so no item is marked current.
  */
 export function Sidebar({
   page,
@@ -19,18 +23,28 @@ export function Sidebar({
   onNavigate: (page: ShellPage) => void;
 }) {
   return (
-    <nav className="mode-switch" aria-label="Main navigation">
-      {items.map(({ id, label }) => (
-        <button
-          key={id}
-          type="button"
-          className={page === id ? "mode-switch__item is-active" : "mode-switch__item"}
-          aria-current={page === id ? "page" : undefined}
-          onClick={() => onNavigate(id)}
-        >
-          {label}
-        </button>
-      ))}
-    </nav>
+    <aside className="sidebar">
+      <nav aria-label="Main navigation">
+        {items.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className={page === id ? "nav-item active" : "nav-item"}
+            aria-current={page === id ? "page" : undefined}
+            onClick={() => onNavigate(id)}
+          >
+            <Icon size={24} strokeWidth={1.5} />
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="sidebar__footer">
+        <strong>
+          {APP_CONFIG.name} v{APP_CONFIG.version}
+        </strong>
+        <span>Built for Brain-Computer Interface</span>
+      </div>
+    </aside>
   );
 }

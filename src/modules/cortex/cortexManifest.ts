@@ -7,7 +7,9 @@ export const cortexManifest: KNeuronModuleManifest = {
   version: "1.1.0",
   description: "Interactive real-time 3D visualization of EEG activity.",
   category: "VISUALIZATION",
-  appearance: {},
+  appearance: {
+    thumbnail: "/modules/cortex/thumbnail.webp",
+  },
   entryPoint: "/modules/cortex-3d",
   capabilities: {
     eeg: {

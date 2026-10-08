@@ -226,7 +226,6 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
           `${connection.sampleRateHz} Hz · ` +
           `${connection.channelCount} EEG channels. ` +
           mappingMessage,
-        batteryPercent: connection.battery ?? null,
         updatedAt: Date.now(),
       });
     } catch (error) {

@@ -27,7 +27,7 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
       <section className="module-host">
         <header className="module-host__toolbar">
           <button type="button" className="secondary-button" onClick={onBack}>
-            Back to modules
+            Back to Dashboard
           </button>
         </header>
 
@@ -51,7 +51,7 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
       <section className="module-host">
         <header className="module-host__toolbar">
           <button type="button" className="secondary-button" onClick={onBack}>
-            Back to modules
+            Back to Dashboard
           </button>
         </header>
 
@@ -77,13 +77,13 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
     <section className="module-host module-host--active">
       <header className="module-host__toolbar">
         <button type="button" className="secondary-button" onClick={onBack}>
-          Back to modules
+          Back to Dashboard
         </button>
 
         <div className="module-host__identity">
           <span>{registeredModule.manifest.name}</span>
 
-          <span className="module-host__version">{registeredModule.manifest.version}</span>
+          <code>v{registeredModule.manifest.version}</code>
         </div>
       </header>
 

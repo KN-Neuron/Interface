@@ -65,6 +65,13 @@ export interface DeviceInfo {
    * Optional hardware model.
    */
   model?: string;
+
+  /**
+   * Optional picture of the device shown on the Device page and in the
+   * device panel, e.g. "/devices/brainaccess-maxi.webp" (served from public/).
+   * A placeholder is shown when it is missing or fails to load.
+   */
+  thumbnail?: string;
 }
 
 /**
@@ -91,13 +98,6 @@ export interface DeviceStatus {
    * It should normally be defined only while state === "error".
    */
   error?: string;
-
-  /**
-   * Battery level in percent, when the device reports it.
-   *
-   * BrainAccess reports it once, when the connection is established.
-   */
-  batteryPercent?: number | null;
 
   /**
    * Unix timestamp in milliseconds indicating when this snapshot was created

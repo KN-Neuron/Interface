@@ -1,69 +1,39 @@
-/* Cortex 3D: brain on a dark screen, controls on the light instrument face.
-   Uses the shell tokens from src/styles/app.css. */
-
 .cortex-module {
-  /* Keep in sync with the fragment shader in CortexRenderer.ts. */
-  --activity-rest: rgb(41 61 59);
-  --activity-trace: rgb(143 217 191);
-  --activity-hot: rgb(247 102 8);
-
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 16px min(var(--controls-width, 320px), 50%);
-
+  grid-template-columns: minmax(0, 1fr) 330px;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-
-  color: var(--ink);
-
+  gap: 1px;
+  background: #1f1f1f;
   overflow: hidden;
 }
-
-.cortex-module--controls-collapsed .cortex-controls {
-  display: none;
-}
-
-/* ---------------------------------------------------------
-   Screen
-   --------------------------------------------------------- */
 
 .cortex-stage {
   position: relative;
-
   min-width: 0;
   min-height: 0;
-
-  background: var(--screen);
-  border: 1px solid var(--screen-edge);
-  border-radius: 4px;
-  box-shadow: inset 0 2px 6px rgb(0 0 0 / 55%);
-
   overflow: hidden;
+  background: #000;
 }
 
 .cortex-viewport,
 .cortex-three-host {
   position: absolute;
   inset: 0;
-
   min-width: 0;
   min-height: 0;
-
-  background: var(--screen);
-
   overflow: hidden;
+  background: #000;
 }
 
 .cortex-three-canvas {
   position: absolute;
   inset: 0;
-
   display: block;
-
   width: 100%;
   height: 100%;
-
   outline: none;
 }
 
@@ -71,491 +41,379 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-
   pointer-events: none;
 }
 
 .cortex-electrode-label {
-  color: #d9ece6;
-  font-family: var(--font);
-  font-size: 11px;
-  font-weight: 500;
+  color: #efefef;
+  font-size: 10px;
+  font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
   text-shadow: 0 1px 3px #000;
-
   user-select: none;
 }
 
 .cortex-overlay {
   position: absolute;
   z-index: 5;
+  border: 1px solid #2d2d2d;
+  background: rgb(9 9 9 / 86%);
+  backdrop-filter: blur(5px);
 }
 
 .cortex-overlay--status {
-  top: 12px;
+  top: 14px;
   left: 14px;
-
   display: flex;
   align-items: center;
-
-  gap: 10px;
-
-  color: var(--screen-label);
-  font-size: 13px;
+  gap: 8px;
+  padding: 8px 10px;
+  color: #959595;
+  font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+  font-size: 9px;
+  text-transform: uppercase;
 }
 
 .cortex-overlay--status strong {
-  color: #e3ece8;
-  font-weight: 600;
+  color: #e4e4e4;
+  font-weight: 500;
 }
 
 .cortex-status-dot {
-  width: 8px;
-  height: 8px;
-
-  background: var(--led-busy);
-  border-radius: 50%;
+  width: 7px;
+  height: 7px;
+  background: #d6a643;
 }
 
 .cortex-status-dot--streaming {
-  background: var(--led-on);
-  box-shadow: 0 0 0 3px rgb(47 158 68 / 25%);
+  background: #36ca92;
 }
 
 .cortex-status-dot--error {
-  background: var(--led-error);
+  background: #df6574;
 }
-
-/* Calibration sits on the screen, like a message on an instrument display. */
-.cortex-calibration-overlay {
-  position: absolute;
-  z-index: 10;
-  inset: 0;
-
-  display: grid;
-  place-items: center;
-
-  padding: 24px;
-
-  background: rgb(16 22 23 / 55%);
-
-  pointer-events: none;
-}
-
-.cortex-calibration-card {
-  width: min(420px, calc(100% - 32px));
-
-  padding: 20px 22px;
-
-  color: #e3ece8;
-  background: var(--screen);
-  border: 1px solid var(--screen-grid);
-  border-radius: 4px;
-}
-
-.cortex-calibration-card h2 {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 600;
-}
-
-.cortex-calibration-card p {
-  margin-top: 4px;
-
-  color: var(--screen-label);
-  font-size: 14px;
-}
-
-.cortex-calibration-track {
-  height: 4px;
-
-  margin-top: 18px;
-
-  background: var(--screen-grid);
-  border-radius: 2px;
-
-  overflow: hidden;
-}
-
-.cortex-calibration-fill {
-  height: 100%;
-
-  background: var(--trace);
-
-  transition: width 90ms linear;
-}
-
-.cortex-calibration-time {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-
-  margin-top: 8px;
-
-  color: var(--screen-label);
-  font-size: 13px;
-}
-
-.cortex-calibration-time strong {
-  color: var(--trace);
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 600;
-}
-
-/* ---------------------------------------------------------
-   Control face
-   --------------------------------------------------------- */
 
 .cortex-controls {
   min-height: 0;
-
-  padding: 4px 18px 18px;
-
-  background: var(--face);
-  border: 1px solid var(--groove);
-  border-radius: var(--radius-panel);
-
   overflow-y: auto;
+  padding: 16px;
+  background: #0e0e0e;
+  color: #c7c7c7;
+}
+
+.cortex-controls__title {
+  padding-bottom: 15px;
+  border-bottom: 1px solid #282828;
+}
+
+.cortex-controls__title h2 {
+  margin: 5px 0;
+  color: #f4f4f4;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cortex-controls__title p,
+.cortex-note {
+  margin: 0;
+  color: #858585;
+  font-size: 10px;
+  line-height: 1.55;
 }
 
 .cortex-control-section {
-  padding: 16px 0;
-
-  border-bottom: 1px solid var(--groove);
+  padding: 15px 0;
+  border-bottom: 1px solid #242424;
 }
 
 .cortex-control-section__heading {
-  margin: 0 0 8px;
-
-  font-family: var(--font-display);
-  font-size: 18px;
+  margin-bottom: 10px;
+  color: #979797;
+  font-size: 9px;
   font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .cortex-kv {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-
+  min-height: 28px;
   gap: 12px;
-  padding: 3px 0;
-
-  color: var(--ink-2);
-  font-size: 14px;
+  color: #7e7e7e;
+  font-size: 9px;
+  text-transform: uppercase;
 }
 
 .cortex-kv strong {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.cortex-kv--spaced {
-  margin-top: 12px;
+  color: #cecece;
+  font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+  font-size: 9px;
+  font-weight: 500;
 }
 
 .cortex-field {
   display: grid;
-
-  gap: 5px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .cortex-field > span,
 .cortex-coordinate-grid span {
-  display: flex;
-  justify-content: space-between;
-
-  color: var(--ink-2);
-  font-size: 14px;
-}
-
-.cortex-field output {
-  color: var(--ink);
-  font-weight: 600;
+  color: #878787;
+  font-size: 9px;
+  text-transform: uppercase;
 }
 
 .cortex-field select,
-.cortex-field input:not([type="range"]),
+.cortex-field input,
 .cortex-coordinate-grid input {
   width: 100%;
-  height: 34px;
-
-  padding: 0 9px;
-
-  color: var(--ink);
-  background: var(--face-raised);
-  border: 1px solid var(--groove);
-  border-radius: var(--radius-control);
+  box-sizing: border-box;
+  border: 1px solid #343434;
+  border-radius: 0;
+  background: #111111;
+  color: #d6d6d6;
+  padding: 7px 8px;
+  font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+  font-size: 10px;
 }
 
 .cortex-field input[type="range"] {
-  width: 100%;
-
-  accent-color: var(--ink);
+  padding: 0;
 }
 
 .cortex-button {
-  height: 34px;
-
-  margin-top: 12px;
-  padding: 0 14px;
-
-  color: var(--ink);
-  background: var(--face-raised);
-  border: 1px solid var(--groove);
-  border-radius: var(--radius-control);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 80%) inset;
-
-  font-weight: 600;
-
+  margin-top: 10px;
+  border: 1px solid #3e3e3e;
+  border-radius: 0;
+  background: #151515;
+  color: #d0d0d0;
+  padding: 7px 10px;
+  font-size: 10px;
   cursor: pointer;
 }
 
-.cortex-button:hover:not(:disabled) {
-  border-color: var(--ink-3);
+.cortex-button:hover:not(:disabled),
+.cortex-button--active {
+  border-color: #e50611;
+  background: #1f1f1f;
+  color: #f2f2f2;
 }
 
 .cortex-button:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: default;
 }
 
-.cortex-button--primary {
-  color: var(--face-raised);
-  background: var(--ink);
-  border-color: var(--ink);
-}
-
-.cortex-button--primary:hover:not(:disabled) {
-  background: #2c353a;
-}
-
-.cortex-button--active {
-  border-color: var(--active);
-  box-shadow: inset 3px 0 0 var(--active);
+.cortex-button--save {
+  border-color: #24624f;
 }
 
 .cortex-button-row {
   display: flex;
-
-  gap: 8px;
-}
-
-.cortex-button-row .cortex-button {
-  flex: 1;
+  gap: 7px;
 }
 
 .cortex-check {
   display: flex;
   align-items: center;
-
-  gap: 8px;
-  margin-top: 12px;
-
-  font-size: 14px;
+  gap: 7px;
+  color: #979797;
+  font-size: 10px;
 }
 
-.cortex-check input {
-  accent-color: var(--ink);
+.cortex-editor {
+  padding-top: 8px;
 }
 
 .cortex-coordinate-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.cortex-coordinate-grid label {
-  display: grid;
-
-  gap: 4px;
+  gap: 6px;
+  margin-top: 9px;
 }
 
 .cortex-coordinate-grid label:first-child {
   grid-column: 1 / -1;
 }
 
-.cortex-save-state {
-  margin-top: 10px;
+.cortex-coordinate-grid label {
+  display: grid;
+  gap: 4px;
+}
 
-  color: var(--led-on);
-  font-size: 13px;
+.cortex-save-state {
+  margin: 9px 0 0;
+  color: #5fc89f;
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .cortex-error {
-  margin-top: 10px;
-  padding: 10px 12px;
-
-  color: var(--ink);
-  background: var(--face-raised);
-  border: 1px solid var(--groove);
-  border-left: 3px solid var(--led-error);
-  border-radius: var(--radius-control);
-
-  font-size: 14px;
+  margin-top: 9px;
+  padding: 8px;
+  border: 1px solid #64343b;
+  background: #1d0e13;
+  color: #df8790;
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .cortex-error button {
   display: block;
+  margin-top: 7px;
+  border: 1px solid #74434a;
+  border-radius: 0;
+  background: transparent;
+  color: #e9a0a7;
+  padding: 5px 7px;
+  font-size: 9px;
+}
 
-  height: 30px;
+.cortex-note {
+  padding-top: 14px;
+}
 
-  margin-top: 8px;
-  padding: 0 12px;
+@media (max-width: 980px) {
+  .cortex-module {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+}
 
-  color: var(--face-raised);
-  background: var(--ink);
-  border: 0;
-  border-radius: var(--radius-control);
+/* =========================================================
+   Cortex v1.1 calibration / processing UI
+   ========================================================= */
 
+.cortex-calibration-overlay {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(0 4 8 / 38%);
+  backdrop-filter: blur(1.5px);
+  pointer-events: none;
+}
+
+.cortex-calibration-card {
+  width: min(430px, calc(100% - 32px));
+  box-sizing: border-box;
+  border: 1px solid #3e3e3e;
+  background: rgb(12 12 12 / 94%);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 46%);
+  padding: 22px;
+}
+
+.cortex-calibration-card h2 {
+  margin: 7px 0 6px;
+  color: #f6f6f6;
+  font-size: 19px;
   font-weight: 600;
+}
 
-  cursor: pointer;
+.cortex-calibration-card p {
+  margin: 0;
+  color: #9a9a9a;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.cortex-calibration-track {
+  height: 7px;
+  margin-top: 18px;
+  border: 1px solid #2f2f2f;
+  background: #0f0f0f;
+  overflow: hidden;
+}
+
+.cortex-calibration-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d71f27, #d71f27);
+  transition: width 90ms linear;
+}
+
+.cortex-calibration-time {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: #8e8e8e;
+  font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+  font-size: 10px;
+}
+
+.cortex-calibration-time strong {
+  color: #dcdcdc;
+  font-weight: 500;
+}
+
+.cortex-button--primary {
+  border-color: #d71f27;
+  background: #272727;
+  color: #f3f3f3;
+}
+
+.cortex-kv--spaced {
+  margin-top: 12px;
 }
 
 .cortex-processing-note,
-.cortex-note {
-  margin-top: 12px;
-
-  color: var(--ink-3);
-  font-size: 13px;
+.cortex-warning {
+  margin: 10px 0 0;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
-.cortex-note {
-  padding-top: 4px;
+.cortex-processing-note {
+  color: #787878;
 }
 
 .cortex-warning {
-  margin-top: 10px;
-  padding-left: 8px;
-
-  border-left: 3px solid var(--led-busy);
-
-  font-size: 14px;
+  border-left: 2px solid #d29b42;
+  padding-left: 7px;
+  color: #d6ac69;
 }
 
 .cortex-activity-list {
-  margin-top: 14px;
-  padding: 10px 12px;
-
-  background: var(--screen);
-  border-radius: 4px;
+  margin-top: 13px;
+  padding-top: 10px;
+  border-top: 1px solid #212121;
 }
 
 .cortex-activity-list__title {
   display: block;
-
-  margin-bottom: 6px;
-
-  color: var(--screen-label);
-  font-size: 13px;
+  margin-bottom: 7px;
+  color: #878787;
+  font-size: 9px;
+  text-transform: uppercase;
 }
 
 .cortex-activity-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 28px;
+  grid-template-columns: 34px minmax(0, 1fr) 24px;
   align-items: center;
-
-  gap: 8px;
-  min-height: 22px;
-
-  color: #c9d6d2;
-  font-size: 13px;
+  gap: 6px;
+  min-height: 20px;
+  color: #8e8e8e;
+  font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
+  font-size: 9px;
 }
 
 .cortex-activity-row strong {
-  color: var(--trace);
-  font-weight: 600;
+  color: #c6c6c6;
+  font-weight: 500;
   text-align: right;
 }
 
 .cortex-activity-track {
-  height: 4px;
-
-  background: var(--screen-grid);
-  border-radius: 2px;
-
+  height: 3px;
+  background: #1f1f1f;
   overflow: hidden;
 }
 
 .cortex-activity-fill {
   height: 100%;
-
-  background: var(--trace);
-}
-
-/* ---------------------------------------------------------
-   Camera views and colour legend (on the screen)
-   --------------------------------------------------------- */
-
-.cortex-views {
-  top: 10px;
-  right: 10px;
-
-  display: flex;
-
-  padding: 2px;
-
-  background: rgb(16 22 23 / 80%);
-  border: 1px solid var(--screen-grid);
-  border-radius: var(--radius-control);
-}
-
-.cortex-views button {
-  height: 26px;
-
-  padding: 0 10px;
-
-  color: #c9d6d2;
-  background: transparent;
-  border: 0;
-  border-radius: 2px;
-
-  font-size: 13px;
-
-  cursor: pointer;
-}
-
-.cortex-views button:hover {
-  color: var(--trace);
-  background: var(--screen-grid);
-}
-
-.cortex-legend {
-  bottom: 12px;
-  left: 14px;
-
-  display: grid;
-
-  width: min(260px, calc(100% - 28px));
-
-  gap: 4px;
-
-  color: var(--screen-label);
-  font-size: 12px;
-}
-
-.cortex-legend__title {
-  color: #c9d6d2;
-}
-
-.cortex-legend__bar {
-  height: 8px;
-
-  /* Matches the shader: flat up to 18%, trace at 55%, hot at 100%. */
-  background: linear-gradient(
-    90deg,
-    var(--activity-rest) 0%,
-    var(--activity-rest) 18%,
-    var(--activity-trace) 55%,
-    var(--activity-hot) 100%
-  );
-  border-radius: 2px;
-}
-
-.cortex-legend__scale {
-  display: flex;
-  justify-content: space-between;
+  background: #d71f27;
 }

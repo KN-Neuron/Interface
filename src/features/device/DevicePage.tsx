@@ -12,41 +12,62 @@ export function DevicePage() {
   const { snapshot, streamInfoByDeviceId, connect, disconnect, getStatusForDevice } = useDevice();
 
   return (
-    <section className="page">
-      <header className="page__header">
-        <h1>Devices</h1>
-        <p>One device can be connected at a time. Connecting another one disconnects the first.</p>
+    <section className="device-page">
+      <header className="device-page__header">
+        <h1>Device</h1>
+
+        <p>Manage devices available to KNeuron.</p>
       </header>
 
-      {snapshot.devices.length === 0 ? (
-        <div className="empty-state">
-          <strong>No devices registered</strong>
-          <p>Add an adapter in registerBuiltInDevices.ts and it will appear here.</p>
-        </div>
-      ) : (
-        <ul className="device-list">
-          {snapshot.devices.map((device) => {
-            const active = snapshot.activeDeviceId === device.id;
+      <section className="device-section">
+        <div className="device-section__heading">
+          <div>
+            <h2>Available devices</h2>
 
-            return (
-              <DeviceCard
-                key={device.id}
-                device={device}
-                active={active}
-                busy={snapshot.busy}
-                status={getStatusForDevice(device.id)}
-                streamInfo={streamInfoByDeviceId[device.id]}
-                onConnect={() => {
-                  void connect(device.id);
-                }}
-                onDisconnect={() => {
-                  void disconnect();
-                }}
-              />
-            );
-          })}
-        </ul>
-      )}
+            <p>
+              {snapshot.devices.length} registered adapter
+              {snapshot.devices.length === 1 ? "" : "s"}
+            </p>
+          </div>
+
+          {snapshot.activeDeviceInfo && (
+            <span className="device-active-indicator">
+              Active · {snapshot.activeDeviceInfo.name}
+            </span>
+          )}
+        </div>
+
+        {snapshot.devices.length === 0 ? (
+          <div className="device-empty-state">
+            <strong>No devices available</strong>
+
+            <span>Install or register a KNeuron device adapter.</span>
+          </div>
+        ) : (
+          <div className="device-grid">
+            {snapshot.devices.map((device) => {
+              const active = snapshot.activeDeviceId === device.id;
+
+              return (
+                <DeviceCard
+                  key={device.id}
+                  device={device}
+                  active={active}
+                  busy={snapshot.busy}
+                  status={getStatusForDevice(device.id)}
+                  streamInfo={streamInfoByDeviceId[device.id]}
+                  onConnect={() => {
+                    void connect(device.id);
+                  }}
+                  onDisconnect={() => {
+                    void disconnect();
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
     </section>
   );
 }

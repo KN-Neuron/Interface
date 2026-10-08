@@ -7,7 +7,9 @@ export const minerManifest: KNeuronModuleManifest = {
   version: "1.0.0",
   description: "SSVEP-controlled mining game using the TaaLON FBCCA pipeline.",
   category: "GAME",
-  appearance: {},
+  appearance: {
+    thumbnail: "/modules/miner/thumbnail.webp",
+  },
   entryPoint: "/modules/taalon-miner",
   capabilities: {
     eeg: {

@@ -51,7 +51,7 @@ function formatMetric(value: number | null | undefined): string {
   return value == null ? "--" : String(value);
 }
 
-export function NeuorrunModule(_props: KNeuronModuleProps): JSX.Element {
+export function NeuorrunModule({ onRequestClose }: KNeuronModuleProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const unityRef = useRef<UnityInstance | null>(null);
 
@@ -196,29 +196,33 @@ export function NeuorrunModule(_props: KNeuronModuleProps): JSX.Element {
   return (
     <section className="neuorrun-module">
       <header className="neuorrun-module__bar">
-        <dl className="neuorrun-module__telemetry">
+        <div>
+          <strong>Neuorrun</strong>
+        </div>
+
+        <div className="neuorrun-module__telemetry">
           <div>
-            <dt>Headset</dt>
-            <dd className={brain.state === "live" ? "is-live" : ""}>
-              {brain.state === "live" ? "Live" : "Not connected"}
-            </dd>
+            <small>BRAINLINK</small>
+            <span className={brain.state === "live" ? "is-live" : ""}>
+              {brain.state === "live" ? "LIVE" : "NOT CONNECTED"}
+            </span>
           </div>
           <div>
-            <dt>Attention</dt>
-            <dd>{formatMetric(brain.metrics?.attention)}</dd>
+            <small>ATTENTION</small>
+            <span>{formatMetric(brain.metrics?.attention)}</span>
           </div>
           <div>
-            <dt>Meditation</dt>
-            <dd>{formatMetric(brain.metrics?.meditation)}</dd>
+            <small>MEDITATION</small>
+            <span>{formatMetric(brain.metrics?.meditation)}</span>
           </div>
           <div>
-            <dt>Contact</dt>
-            <dd>{signalLabel}</dd>
+            <small>SIGNAL</small>
+            <span>{signalLabel}</span>
           </div>
-        </dl>
-        <p className="neuorrun-module__hint">
-          Attention controls the game. Keyboard and controller also work.
-        </p>
+          <button type="button" onClick={onRequestClose}>
+            EXIT MODULE
+          </button>
+        </div>
       </header>
 
       <div className="neuorrun-module__stage">
@@ -234,6 +238,7 @@ export function NeuorrunModule(_props: KNeuronModuleProps): JSX.Element {
 
         {loadState === "loading" ? (
           <div className="neuorrun-module__overlay">
+            <span>UNITY WEBGL</span>
             <h2>Loading Neuorrun</h2>
             <div className="neuorrun-module__progress">
               <div style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -244,16 +249,18 @@ export function NeuorrunModule(_props: KNeuronModuleProps): JSX.Element {
 
         {loadState === "missing" ? (
           <div className="neuorrun-module__overlay">
-            <h2>Neuorrun game files are missing</h2>
+            <span>UNITY BUILD REQUIRED</span>
+            <h2>Neuorrun assets are not installed yet</h2>
             <p>
-              Build the Unity project for WebGL, then copy it here with
-              unity-patch/prepare_webgl_build.py (see README, “Building Neuorrun manually”).
+              Build the supplied Unity project for WebGL, then run the package prepare script
+              described in INTEGRATION.md.
             </p>
           </div>
         ) : null}
 
         {loadState === "error" ? (
           <div className="neuorrun-module__overlay neuorrun-module__overlay--error">
+            <span>LOAD ERROR</span>
             <h2>Neuorrun could not start</h2>
             <p>{loadError}</p>
           </div>
@@ -261,13 +268,13 @@ export function NeuorrunModule(_props: KNeuronModuleProps): JSX.Element {
 
         {loadState === "ready" && brain.state === "unavailable" ? (
           <div className="neuorrun-module__brain-warning">
-            <strong>No attention signal</strong>
+            <strong>BrainLink not connected</strong>
             <span>
               {brain.message ??
-                "Connect BrainLink Lite on the Devices page. Keyboard and controller still work."}
+                "Connect BrainLink Lite in Device. Keyboard/controller input remains available."}
             </span>
             <button type="button" onClick={brain.retry}>
-              Try again
+              RETRY
             </button>
           </div>
         ) : null}

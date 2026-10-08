@@ -7,15 +7,13 @@ export const neuorrunManifest: KNeuronModuleManifest = {
   version: "1.0.0",
   description: "Original Neuorrun Unity game integrated with BrainLink Lite attention control.",
   category: "GAME",
-  appearance: {},
+  appearance: {
+    thumbnail: "/modules/neuorrun/thumbnail.webp",
+  },
   entryPoint: "/modules/neuorrun",
   capabilities: {
     eeg: {
       required: false,
-    },
-
-    brainMetrics: {
-      required: true,
     },
   },
 };

@@ -10,9 +10,7 @@ import {
   CORTEX_WARMUP_SECONDS,
 } from "./eeg/CortexSignalProcessor";
 import { useCortexEEG } from "./hooks/useCortexEEG";
-import { CortexRenderer, type CortexView } from "./rendering/CortexRenderer";
-import { PanelResizer } from "../../components/PanelResizer";
-import { usePanelSize } from "../../lib/usePanelSize";
+import { CortexRenderer } from "./rendering/CortexRenderer";
 import { cloneDefaultCortexElectrodes } from "./models/defaultElectrodeLayout";
 import type {
   CortexBand,
@@ -83,24 +81,8 @@ function loadSavedElectrodes(): CortexElectrode[] {
   }
 }
 
-const CAMERA_VIEWS: ReadonlyArray<{ view: CortexView; label: string }> = [
-  { view: "top", label: "Top" },
-  { view: "front", label: "Front" },
-  { view: "back", label: "Back" },
-  { view: "left", label: "Left" },
-  { view: "right", label: "Right" },
-];
-
-const BAND_NAMES: Record<CortexBand, string> = {
-  delta: "Delta",
-  theta: "Theta",
-  alpha: "Alpha",
-  beta: "Beta",
-  gamma: "Gamma",
-};
-
 function formatEEGState(state: string): string {
-  return state.charAt(0).toUpperCase() + state.slice(1);
+  return state.toUpperCase();
 }
 
 function getCalibrationView(
@@ -121,7 +103,7 @@ function getCalibrationView(
   if (eeg.phase === "warmup") {
     return {
       visible: true,
-      title: "Warming up filters",
+      title: "FILTER WARM-UP",
       hint: "Keep still; filter output is not entering the baseline yet.",
       progress: eeg.warmupProgress,
       elapsedSeconds: eeg.warmupProgress * CORTEX_WARMUP_SECONDS,
@@ -132,7 +114,7 @@ function getCalibrationView(
   if (visualMode === "fast" && !eeg.fastReady) {
     return {
       visible: true,
-      title: "Calibrating the fast baseline",
+      title: "CALIBRATING FAST BASELINE",
       hint: "Keep still; the robust baseline freezes when calibration completes.",
       progress: eeg.fastCalibrationProgress,
       elapsedSeconds: eeg.fastCalibrationProgress * CORTEX_FAST_BASELINE_SECONDS,
@@ -144,7 +126,7 @@ function getCalibrationView(
     if (eeg.bandWindowProgress < 1 && eeg.bandCalibrationProgress === 0) {
       return {
         visible: true,
-        title: "Collecting the band window",
+        title: "BUILDING BAND WINDOW",
         hint: "Collecting the 2 s filtered window required by Welch PSD.",
         progress: eeg.bandWindowProgress,
         elapsedSeconds: eeg.bandWindowProgress * CORTEX_BAND_WINDOW_SECONDS,
@@ -154,7 +136,7 @@ function getCalibrationView(
 
     return {
       visible: true,
-      title: "Calibrating the band baseline",
+      title: "BUILDING BAND BASELINE",
       hint: "Keep still; the channel × band baseline freezes when complete.",
       progress: eeg.bandCalibrationProgress,
       elapsedSeconds: eeg.bandCalibrationProgress * CORTEX_BAND_BASELINE_SECONDS,
@@ -177,22 +159,22 @@ function getProcessingStatus(
   visualMode: CortexVisualMode,
 ): string {
   if (!eeg.started) {
-    return "Idle";
+    return "IDLE";
   }
 
   if (eeg.phase === "warmup") {
-    return "Warming up";
+    return "WARM-UP";
   }
 
   if (visualMode === "fast" && !eeg.fastReady) {
-    return "Calibrating";
+    return "CALIBRATING";
   }
 
   if (visualMode === "bands" && !eeg.bandReady) {
-    return "Calibrating";
+    return "CALIBRATING";
   }
 
-  return "Live";
+  return "LIVE";
 }
 
 export function CortexModule(_props: KNeuronModuleProps) {
@@ -204,15 +186,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
   const [quality, setQuality] = useState<CortexQuality>("medium");
   const [hotspotRadius, setHotspotRadius] = useState(0.38);
   const [deformation, setDeformation] = useState(0.2);
-  const [meshLinesVisible, setMeshLinesVisible] = useState(false);
   const [editMode, setEditMode] = useState(false);
-
-  const controlsPanel = usePanelSize({
-    storageKey: "kneuron.panel.cortex-controls",
-    defaultWidth: 320,
-    minWidth: 260,
-    maxWidth: 520,
-  });
   const [labelsVisible, setLabelsVisible] = useState(true);
   const [electrodes, setElectrodes] = useState<CortexElectrode[]>(loadSavedElectrodes);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -303,16 +277,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
   }
 
   return (
-    <section
-      className={
-        controlsPanel.collapsed
-          ? "cortex-module cortex-module--controls-collapsed"
-          : "cortex-module"
-      }
-      style={{
-        ["--controls-width" as string]: `${controlsPanel.collapsed ? 0 : controlsPanel.width}px`,
-      }}
-    >
+    <section className="cortex-module">
       <div className="cortex-stage">
         <CortexViewport
           initialElectrodes={electrodes}
@@ -320,7 +285,6 @@ export function CortexModule(_props: KNeuronModuleProps) {
           quality={quality}
           hotspotRadius={hotspotRadius}
           deformation={deformation}
-          meshLinesVisible={meshLinesVisible}
           editMode={editMode}
           labelsVisible={labelsVisible}
           onRendererReady={(renderer) => {
@@ -340,40 +304,12 @@ export function CortexModule(_props: KNeuronModuleProps) {
         <div className="cortex-overlay cortex-overlay--status">
           <span className={`cortex-status-dot cortex-status-dot--${eeg.state}`} />
           <strong>{formatEEGState(eeg.state)}</strong>
-          {eeg.sampleRateHz !== null && (
-            <span>
-              {eeg.sampleRateHz} Hz, {eeg.channelCount} channels
-            </span>
-          )}
+          <span>
+            {eeg.sampleRateHz ? `${eeg.sampleRateHz} Hz` : "—"} · {eeg.channelCount} ch
+          </span>
+          {eeg.lastSequence !== null && <span>sample {eeg.lastSequence}</span>}
           {eeg.started && <span>{processingStatus}</span>}
         </div>
-
-        <div
-          className="cortex-overlay cortex-views"
-          role="group"
-          aria-label="Camera view"
-          title="Double-click the brain to return to the top view"
-        >
-          {CAMERA_VIEWS.map(({ view, label }) => (
-            <button key={view} type="button" onClick={() => rendererRef.current?.setView(view)}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {eeg.started && (
-          <div className="cortex-overlay cortex-legend">
-            <span className="cortex-legend__title">
-              {visualMode === "fast" ? "Activity" : `${BAND_NAMES[selectedBand]} power`} vs.
-              baseline
-            </span>
-            <span className="cortex-legend__bar" aria-hidden="true" />
-            <span className="cortex-legend__scale">
-              <span>At baseline</span>
-              <span>Strongest</span>
-            </span>
-          </div>
-        )}
 
         {calibration.visible && (
           <div className="cortex-calibration-overlay">
@@ -399,11 +335,14 @@ export function CortexModule(_props: KNeuronModuleProps) {
         )}
       </div>
 
-      <PanelResizer panel={controlsPanel} label="Cortex controls" />
-
       <aside className="cortex-controls">
+        <div className="cortex-controls__title">
+          <h2>EEG Cortex</h2>
+          <p>BrainDance renderer + frozen-baseline Cortex processing.</p>
+        </div>
+
         <section className="cortex-control-section">
-          <h3 className="cortex-control-section__heading">EEG stream</h3>
+          <div className="cortex-control-section__heading">EEG stream</div>
 
           <div className="cortex-kv">
             <span>Status</span>
@@ -437,7 +376,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
         </section>
 
         <section className="cortex-control-section">
-          <h3 className="cortex-control-section__heading">Processing</h3>
+          <div className="cortex-control-section__heading">Processing</div>
 
           <div className="cortex-kv">
             <span>Status</span>
@@ -450,8 +389,8 @@ export function CortexModule(_props: KNeuronModuleProps) {
               value={visualMode}
               onChange={(event) => setVisualMode(event.target.value as CortexVisualMode)}
             >
-              <option value="fast">Fast activity (200 ms RMS)</option>
-              <option value="bands">Band power (Welch)</option>
+              <option value="fast">FAST · 200 ms RMS</option>
+              <option value="bands">BAND POWER · Welch</option>
             </select>
           </label>
 
@@ -462,11 +401,11 @@ export function CortexModule(_props: KNeuronModuleProps) {
                 value={selectedBand}
                 onChange={(event) => setSelectedBand(event.target.value as CortexBand)}
               >
-                <option value="alpha">Alpha, 8–13 Hz</option>
-                <option value="beta">Beta, 13–30 Hz</option>
-                <option value="theta">Theta, 4–8 Hz</option>
-                <option value="delta">Delta, 1–4 Hz</option>
-                <option value="gamma">Gamma, 30–45 Hz</option>
+                <option value="alpha">ALPHA · 8–13 Hz</option>
+                <option value="beta">BETA · 13–30 Hz</option>
+                <option value="theta">THETA · 4–8 Hz</option>
+                <option value="delta">DELTA · 1–4 Hz</option>
+                <option value="gamma">GAMMA · 30–45 Hz</option>
               </select>
             </label>
           )}
@@ -496,15 +435,15 @@ export function CortexModule(_props: KNeuronModuleProps) {
           )}
 
           <div className="cortex-kv cortex-kv--spaced">
-            <span>Fast baseline</span>
+            <span>FAST baseline</span>
             <strong>
-              {eeg.fastReady ? "Frozen" : `${Math.round(eeg.fastCalibrationProgress * 100)}%`}
+              {eeg.fastReady ? "FROZEN" : `${Math.round(eeg.fastCalibrationProgress * 100)}%`}
             </strong>
           </div>
           <div className="cortex-kv">
-            <span>Band baseline</span>
+            <span>BAND baseline</span>
             <strong>
-              {eeg.bandReady ? "Frozen" : `${Math.round(eeg.bandCalibrationProgress * 100)}%`}
+              {eeg.bandReady ? "FROZEN" : `${Math.round(eeg.bandCalibrationProgress * 100)}%`}
             </strong>
           </div>
           <div className="cortex-kv">
@@ -519,8 +458,8 @@ export function CortexModule(_props: KNeuronModuleProps) {
           )}
 
           <p className="cortex-processing-note">
-            Filtered 1–45 Hz, with a 50 Hz notch when supported. The baseline freezes after
-            calibration. Artifact quality is shown for information only.
+            1–45 Hz causal filtering · 50 Hz notch when supported · frozen robust baseline ·
+            artifact quality is telemetry only.
           </p>
 
           {eeg.started && strongestChannels.length > 0 && (
@@ -543,7 +482,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
         </section>
 
         <section className="cortex-control-section">
-          <h3 className="cortex-control-section__heading">Rendering</h3>
+          <div className="cortex-control-section__heading">Rendering</div>
 
           <label className="cortex-field">
             <span>Quality</span>
@@ -551,16 +490,14 @@ export function CortexModule(_props: KNeuronModuleProps) {
               value={quality}
               onChange={(event) => setQuality(event.target.value as CortexQuality)}
             >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
+              <option value="low">LOW</option>
+              <option value="medium">MEDIUM</option>
+              <option value="high">HIGH</option>
             </select>
           </label>
 
           <label className="cortex-field">
-            <span>
-              Hotspot radius <output>{hotspotRadius.toFixed(2)}</output>
-            </span>
+            <span>Hotspot radius · {hotspotRadius.toFixed(2)}</span>
             <input
               type="range"
               min="0.2"
@@ -572,9 +509,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
           </label>
 
           <label className="cortex-field">
-            <span>
-              Deformation <output>{deformation.toFixed(2)}</output>
-            </span>
+            <span>Deformation · {deformation.toFixed(2)}</span>
             <input
               type="range"
               min="0"
@@ -583,15 +518,6 @@ export function CortexModule(_props: KNeuronModuleProps) {
               value={deformation}
               onChange={(event) => setDeformation(Number(event.target.value))}
             />
-          </label>
-
-          <label className="cortex-check">
-            <input
-              type="checkbox"
-              checked={meshLinesVisible}
-              onChange={(event) => setMeshLinesVisible(event.target.checked)}
-            />
-            <span>Show mesh lines (slower)</span>
           </label>
 
           <button
@@ -604,7 +530,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
         </section>
 
         <section className="cortex-control-section">
-          <h3 className="cortex-control-section__heading">Electrodes</h3>
+          <div className="cortex-control-section__heading">Electrodes</div>
 
           <button
             type="button"
@@ -677,7 +603,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
                   className="cortex-button"
                   onClick={() => rendererRef.current?.addElectrode()}
                 >
-                  Add electrode
+                  + Add
                 </button>
                 <button
                   type="button"

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BrainLogo } from "./BrainLogo";
@@ -6,7 +5,10 @@ import { APP_CONFIG } from "../config/appConfig";
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
 
-export function TitleBar({ children }: { children?: ReactNode }) {
+/**
+ * Top bar: wordmark and window controls.
+ */
+export function TitleBar() {
   const run = async (action: "minimize" | "maximize" | "close") => {
     if (!isTauri()) return;
     const win = getCurrentWindow();
@@ -18,13 +20,14 @@ export function TitleBar({ children }: { children?: ReactNode }) {
   return (
     <header className="titlebar" data-tauri-drag-region>
       <div className="brand" data-tauri-drag-region>
-        <BrainLogo size={26} />
-        <strong data-tauri-drag-region>{APP_CONFIG.name}</strong>
+        <BrainLogo size={44} />
+        <div className="brand__text" data-tauri-drag-region>
+          <strong data-tauri-drag-region>{APP_CONFIG.name}</strong>
+          <span data-tauri-drag-region>Modular Brain-Computer Interface</span>
+        </div>
       </div>
 
-      {children}
-
-      <div className="titlebar__spacer" data-tauri-drag-region />
+      <div className="titlebar__drag" data-tauri-drag-region />
 
       <div className="window-controls">
         <button aria-label="Minimize" onClick={() => void run("minimize")}>

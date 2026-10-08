@@ -50,14 +50,14 @@ export class ModuleErrorBoundary extends Component<
     if (this.state.hasError) {
       return (
         <section className="module-error">
-          <h1>This module stopped working</h1>
+          <h1>Module failed</h1>
 
-          <p>The rest of KNeuron is unaffected. Go back to the module list and open it again.</p>
+          <p>KNeuron isolated the module failure. The desktop shell is still running normally.</p>
 
           {this.state.message && <code>{this.state.message}</code>}
 
           <button type="button" className="primary-button" onClick={this.props.onReturnToDashboard}>
-            Back to modules
+            Return to Dashboard
           </button>
         </section>
       );

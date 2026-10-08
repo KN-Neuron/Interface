@@ -43,13 +43,6 @@ export interface ModuleEEGCapability {
  */
 export interface ModuleCapabilities {
   eeg?: ModuleEEGCapability;
-
-  /**
-   * Derived attention/meditation metrics (BrainMetricsService).
-   */
-  brainMetrics?: {
-    required: boolean;
-  };
 }
 
 /**

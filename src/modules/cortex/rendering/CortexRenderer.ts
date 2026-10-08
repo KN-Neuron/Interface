@@ -6,35 +6,6 @@ import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRe
 
 import type { CortexElectrode, CortexQuality } from "../models/cortex";
 
-/**
- * Fixed camera positions around the head (model axes: +X right, +Y nose,
- * +Z top of the head).
- */
-export type CortexView = "top" | "front" | "back" | "left" | "right";
-
-/**
- * Polar angle is measured from +Z, azimuth in the XY plane from +X.
- * "top" sits a hair off the pole so the nose points up on screen.
- */
-const VIEW_ANGLES: Record<CortexView, { polar: number; azimuth: number }> = {
-  top: { polar: 0.001, azimuth: -Math.PI / 2 },
-  front: { polar: Math.PI / 2, azimuth: Math.PI / 2 },
-  back: { polar: Math.PI / 2, azimuth: -Math.PI / 2 },
-  left: { polar: Math.PI / 2, azimuth: Math.PI },
-  right: { polar: Math.PI / 2, azimuth: 0 },
-};
-
-const VIEW_TRANSITION_MS = 450;
-
-interface ViewTween {
-  fromPolar: number;
-  fromAzimuth: number;
-  toPolar: number;
-  toAzimuth: number;
-  startedAt: number;
-  durationMs: number;
-}
-
 export interface CortexRendererOptions {
   electrodes: readonly CortexElectrode[];
   onLayoutChange?: (electrodes: readonly CortexElectrode[]) => void;
@@ -146,7 +117,7 @@ export class CortexRenderer {
   /**
    * The wireframe overlay draws every edge of the brain mesh (~750k lines on
    * the medium model). ANGLE/Direct3D emulates WebGL lines slowly, which made
-   * rotation stutter in WebView2, so it is off unless requested.
+   * rotation stutter in WebView2, so the overlay is not drawn.
    */
   private wireVisible = false;
   private brainEEG: THREE.Object3D | null = null;
@@ -171,8 +142,6 @@ export class CortexRenderer {
   private resizeGeneration = 0;
   private lastFrameAt = performance.now();
 
-  private viewTween: ViewTween | null = null;
-
   constructor(
     private readonly container: HTMLElement,
     private readonly options: CortexRendererOptions,
@@ -186,7 +155,7 @@ export class CortexRenderer {
       powerPreference: "high-performance",
     });
 
-    this.renderer.setClearColor(0x101617, 1);
+    this.renderer.setClearColor(0x000000, 1);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.domElement.className = "cortex-three-canvas";
     this.container.appendChild(this.renderer.domElement);
@@ -195,7 +164,7 @@ export class CortexRenderer {
     this.labelRenderer.domElement.className = "cortex-label-layer";
     this.container.appendChild(this.labelRenderer.domElement);
 
-    this.scene.background = new THREE.Color(0x101617);
+    this.scene.background = new THREE.Color(0x000000);
     this.scene.add(this.brainRoot);
 
     // Brain model axes: +X right, +Y anterior (nose), +Z superior (top of
@@ -250,10 +219,6 @@ export class CortexRenderer {
     });
 
     this.renderer.domElement.addEventListener("pointerdown", this.handlePointerDown);
-    this.renderer.domElement.addEventListener("dblclick", this.handleDoubleClick);
-
-    // Grabbing the brain mid-transition hands control back to the user.
-    this.controls.addEventListener("start", this.cancelViewTween);
 
     this.makeMarkers();
     this.setEditMode(false);
@@ -311,14 +276,6 @@ export class CortexRenderer {
     this.electrodes.slice(0, MAX_ELECTRODES).forEach((electrode, index) => {
       this.targetActivity[index] = Math.max(0, Math.min(1, activityByLabel[electrode.label] ?? 0));
     });
-  }
-
-  setWireVisible(visible: boolean): void {
-    this.wireVisible = visible;
-
-    if (this.brainWire) {
-      this.brainWire.visible = visible;
-    }
   }
 
   setHotspotRadius(radius: number): void {
@@ -437,41 +394,8 @@ export class CortexRenderer {
   }
 
   refitCamera(): void {
-    this.viewTween = null;
     this.fitCameraToBrain(false);
     this.updateViewport(false);
-  }
-
-  /**
-   * Moves the camera to a fixed view around the head, keeping the distance.
-   */
-  setView(view: CortexView): void {
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    const radius = offset.length();
-
-    if (radius <= 0) {
-      return;
-    }
-
-    const target = VIEW_ANGLES[view];
-    const fromPolar = Math.acos(THREE.MathUtils.clamp(offset.z / radius, -1, 1));
-    const fromAzimuth = Math.atan2(offset.y, offset.x);
-
-    // Turn the short way round.
-    const azimuthDelta =
-      ((((target.azimuth - fromAzimuth + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) -
-      Math.PI;
-
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    this.viewTween = {
-      fromPolar,
-      fromAzimuth,
-      toPolar: target.polar,
-      toAzimuth: fromAzimuth + azimuthDelta,
-      startedAt: performance.now(),
-      durationMs: reducedMotion ? 0 : VIEW_TRANSITION_MS,
-    };
   }
 
   dispose(): void {
@@ -486,8 +410,6 @@ export class CortexRenderer {
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();
     this.renderer.domElement.removeEventListener("pointerdown", this.handlePointerDown);
-    this.renderer.domElement.removeEventListener("dblclick", this.handleDoubleClick);
-    this.controls.removeEventListener("start", this.cancelViewTween);
 
     this.transformControls.detach();
     this.transformControls.dispose();
@@ -524,8 +446,6 @@ export class CortexRenderer {
     if (this.hasBrainBounds) {
       this.controls.target.copy(this.brainCenter);
     }
-
-    this.stepViewTween(now);
 
     this.controls.update();
     this.renderer.setRenderTarget(null);
@@ -681,43 +601,6 @@ export class CortexRenderer {
    * vertical FOV. This is important when the KNeuron module viewport changes
    * aspect ratio as shell panels collapse or the desktop window is resized.
    */
-  private readonly cancelViewTween = (): void => {
-    this.viewTween = null;
-  };
-
-  private readonly handleDoubleClick = (): void => {
-    if (!this.editMode) {
-      this.setView("top");
-    }
-  };
-
-  private stepViewTween(now: number): void {
-    const tween = this.viewTween;
-
-    if (!tween) {
-      return;
-    }
-
-    const progress =
-      tween.durationMs > 0 ? Math.min(1, (now - tween.startedAt) / tween.durationMs) : 1;
-    const eased = 1 - Math.pow(1 - progress, 3);
-
-    const polar = tween.fromPolar + (tween.toPolar - tween.fromPolar) * eased;
-    const azimuth = tween.fromAzimuth + (tween.toAzimuth - tween.fromAzimuth) * eased;
-    const radius = this.camera.position.distanceTo(this.controls.target);
-
-    this.camera.position.set(
-      this.controls.target.x + radius * Math.sin(polar) * Math.cos(azimuth),
-      this.controls.target.y + radius * Math.sin(polar) * Math.sin(azimuth),
-      this.controls.target.z + radius * Math.cos(polar),
-    );
-    this.camera.lookAt(this.controls.target);
-
-    if (progress >= 1) {
-      this.viewTween = null;
-    }
-  }
-
   /**
    * Fits the camera distance to the brain and the current viewport.
    *

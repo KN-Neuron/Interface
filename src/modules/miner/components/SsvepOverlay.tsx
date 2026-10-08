@@ -83,11 +83,12 @@ export function SsvepOverlay({
     return (
       <div className="miner-ssvep-overlay">
         <div className="miner-ssvep-overlay__countdown">
+          <span>BCI MOVE</span>
           <h2>Focus on one direction</h2>
           <strong>{countdownRemaining}</strong>
           <p>Four targets will start simultaneously.</p>
           <button type="button" onClick={onCancel}>
-            Cancel
+            CANCEL
           </button>
         </div>
       </div>
@@ -98,9 +99,10 @@ export function SsvepOverlay({
     return (
       <div className="miner-ssvep-overlay">
         <div className="miner-ssvep-overlay__analyzing">
+          <span>FBCCA</span>
           <h2>Classifying EEG</h2>
           <div className="miner-ssvep-overlay__scanner" />
-          <p>Filter-bank CCA over 5 subbands and 5 harmonics.</p>
+          <p>5 subbands · 5 harmonics · CCA</p>
         </div>
       </div>
     );
@@ -122,7 +124,7 @@ export function SsvepOverlay({
 
   return (
     <div className="miner-ssvep-overlay miner-ssvep-overlay--stimulus">
-      <div className="miner-ssvep-overlay__instruction">Look at one target</div>
+      <div className="miner-ssvep-overlay__instruction">FOCUS ON ONE TARGET</div>
 
       <div className="miner-ssvep-overlay__targets">
         {ordered.map((target, index) => (
@@ -162,7 +164,7 @@ export function SsvepOverlay({
         {phase === "waiting-samples" ? <small>Waiting for remaining EEG samples…</small> : null}
 
         <button type="button" onClick={onCancel}>
-          Cancel (Esc)
+          ESC / CANCEL
         </button>
       </div>
     </div>

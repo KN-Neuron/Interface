@@ -3,35 +3,25 @@ import { useEffect, useState } from "react";
 import { APP_CONFIG } from "./config/appConfig";
 
 import { TitleBar } from "./components/TitleBar";
-
 import { Sidebar } from "./components/Sidebar";
-
 import { DevicePanel } from "./components/DevicePanel";
-import { PanelResizer } from "./components/PanelResizer";
 
 import { Dashboard } from "./features/dashboard/Dashboard";
-
 import { DevicePage } from "./features/device/DevicePage";
-
 import { SettingsPage } from "./features/settings/SettingsPage";
-
 import { useSettings } from "./features/settings/useSettings";
 
 import { ModuleHost } from "./features/modules/ModuleHost";
-
 import { ModuleErrorBoundary } from "./features/modules/ModuleErrorBoundary";
 
 import { closeModule, launchModule } from "./features/modules/moduleLauncher";
 
 import { NotificationCenter } from "./features/notifications/NotificationCenter";
-
 import { DebugPanel } from "./features/debug/DebugPanel";
 import { WelcomeScreen } from "./features/welcome/WelcomeScreen";
 
 import { logger } from "./lib/logger";
-
 import { notificationStore } from "./lib/notificationStore";
-import { usePanelSize } from "./lib/usePanelSize";
 
 import type { AppRoute, ShellPage } from "./types/navigation";
 
@@ -50,13 +40,6 @@ export default function App() {
   const { settings } = useSettings();
 
   const [showWelcome, setShowWelcome] = useState(true);
-
-  const readoutPanel = usePanelSize({
-    storageKey: "kneuron.panel.readout",
-    defaultWidth: 340,
-    minWidth: 260,
-    maxWidth: 560,
-  });
 
   const [route, setRoute] = useState<AppRoute>({
     kind: "shell",
@@ -197,34 +180,21 @@ export default function App() {
 
   const isModuleOpen = route.kind === "module";
 
-  const shellClassName = [
-    "app-shell",
-    isModuleOpen && "app-shell--module-open",
-    readoutPanel.collapsed && "app-shell--readout-collapsed",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const shellClassName = isModuleOpen ? "app-shell app-shell--module-open" : "app-shell";
 
   if (showWelcome) {
     return <WelcomeScreen />;
   }
 
-  const readoutWidth = readoutPanel.collapsed ? 0 : readoutPanel.width;
-
   return (
-    <div className={shellClassName} style={{ ["--readout-width" as string]: `${readoutWidth}px` }}>
-      <TitleBar>
-        <Sidebar page={activeSidebarPage} onNavigate={handleShellNavigation} />
-      </TitleBar>
+    <div className={shellClassName}>
+      <TitleBar />
+
+      <Sidebar page={activeSidebarPage} onNavigate={handleShellNavigation} />
 
       <main className="main-content">{renderContent()}</main>
 
-      {!isModuleOpen && <PanelResizer panel={readoutPanel} label="device readout" />}
-
-      <DevicePanel
-        paused={isModuleOpen || readoutPanel.collapsed}
-        onOpenDevices={() => handleShellNavigation("device")}
-      />
+      <DevicePanel />
 
       <NotificationCenter />
 

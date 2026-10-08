@@ -2,10 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { KNeuronModuleProps } from "../../features/modules/moduleDefinition";
 
-import { PanelResizer } from "../../components/PanelResizer";
-
-import { usePanelSize } from "../../lib/usePanelSize";
-
 import {
   ssvepClassifierService,
   TAALON_COUNTDOWN_SECONDS,
@@ -66,13 +62,6 @@ export function MinerModule(_props: KNeuronModuleProps) {
   } = useMinerEEG();
 
   const [game, setGame] = useState(createInitialMinerGame);
-
-  const controlsPanel = usePanelSize({
-    storageKey: "kneuron.panel.miner-controls",
-    defaultWidth: 320,
-    minWidth: 260,
-    maxWidth: 520,
-  });
 
   const [message, setMessage] = useState(
     "Collect every diamond. One SSVEP decision equals one movement attempt.",
@@ -384,20 +373,41 @@ export function MinerModule(_props: KNeuronModuleProps) {
 
   return (
     <section className="miner-game">
-      <div
-        className={
-          controlsPanel.collapsed
-            ? "miner-game__layout miner-game__layout--controls-collapsed"
-            : "miner-game__layout"
-        }
-        style={{
-          ["--controls-width" as string]: `${controlsPanel.collapsed ? 0 : controlsPanel.width}px`,
-        }}
-      >
+      <header className="miner-game__header">
+        <div>
+          <h1>Deep Core Expedition</h1>
+
+          <p>Collect all diamonds. Each FBCCA decision moves the miner by one cell.</p>
+        </div>
+
+        <div className="miner-game__stream">
+          <span className={`miner-game__status-dot miner-game__status-dot--${eegState}`} />
+
+          <div>
+            <small>EEG STREAM</small>
+
+            <strong>{eegState.toUpperCase()}</strong>
+          </div>
+
+          <div>
+            <small>RATE</small>
+
+            <strong>{sampleRateHz ?? "--"} Hz</strong>
+          </div>
+
+          <div>
+            <small>CHANNELS</small>
+
+            <strong>{channelCount || "--"}</strong>
+          </div>
+        </div>
+      </header>
+
+      <div className="miner-game__layout">
         <main className="miner-game__board-panel">
           <div className="miner-game__mission-bar">
             <div>
-              <small>Diamonds</small>
+              <small>DIAMONDS</small>
 
               <strong>
                 {game.collected.length}
@@ -407,13 +417,13 @@ export function MinerModule(_props: KNeuronModuleProps) {
             </div>
 
             <div>
-              <small>Moves</small>
+              <small>MOVES</small>
 
               <strong>{game.moves}</strong>
             </div>
 
             <div>
-              <small>Remaining</small>
+              <small>REMAINING</small>
 
               <strong>{remainingDiamonds}</strong>
             </div>
@@ -485,38 +495,26 @@ export function MinerModule(_props: KNeuronModuleProps) {
           <div className="miner-game__legend">
             <span>
               <i className="miner-game__legend-miner" />
-              Miner
+              MINER
             </span>
 
             <span>
               <i className="miner-game__legend-diamond" />
-              Diamond
+              DIAMOND
             </span>
 
             <span>
               <i className="miner-game__legend-rock" />
-              Rock
+              ROCK
             </span>
           </div>
         </main>
 
-        <PanelResizer panel={controlsPanel} label="game controls" />
-
         <aside className="miner-game__control-panel">
           <div className="miner-game__section">
-            <div className="miner-game__stream">
-              <span className={`miner-game__status-dot miner-game__status-dot--${eegState}`} />
-              <span>
-                EEG {eegState}
-                {sampleRateHz ? `, ${sampleRateHz} Hz, ${channelCount} channels` : ""}
-              </span>
-            </div>
+            <span className="miner-game__section-label">BCI CONTROL</span>
 
-            <h2>Next move</h2>
-
-            <p className="miner-game__hint">
-              Start a trial, then look at the target in the direction you want the miner to go.
-            </p>
+            <h2>Next movement</h2>
 
             <button
               className="miner-game__primary"
@@ -524,17 +522,17 @@ export function MinerModule(_props: KNeuronModuleProps) {
               onClick={beginTrial}
               type="button"
             >
-              Start trial
+              SELECT WITH GAZE
             </button>
 
             {eegState === "error" ? (
               <div className="miner-game__error">
-                <span>EEG stream stopped</span>
+                <span>EEG ERROR</span>
 
                 <p>{eegError}</p>
 
                 <button type="button" onClick={retryEEG}>
-                  Reconnect stream
+                  RETRY STREAM
                 </button>
               </div>
             ) : null}
@@ -542,10 +540,10 @@ export function MinerModule(_props: KNeuronModuleProps) {
 
           <div className="miner-game__section">
             <div className="miner-game__section-heading">
-              <h2>Target frequencies</h2>
+              <span className="miner-game__section-label">SSVEP TARGETS</span>
 
               <button type="button" onClick={commitFrequencies}>
-                Apply
+                APPLY
               </button>
             </div>
 
@@ -573,7 +571,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
           </div>
 
           <div className="miner-game__section">
-            <h2>Trial length</h2>
+            <span className="miner-game__section-label">TRIAL WINDOW</span>
 
             <div className="miner-game__duration">
               <button
@@ -604,12 +602,12 @@ export function MinerModule(_props: KNeuronModuleProps) {
             </div>
 
             <p className="miner-game__hint">
-              Default 4.0 s. Adjustable from 4 to 10 s in 0.5 s steps.
+              Source game default: 4.0 s. Adjustable 4–10 s in 0.5 s steps.
             </p>
           </div>
 
           <div className="miner-game__section">
-            <h2>Last decision</h2>
+            <span className="miner-game__section-label">LAST FBCCA</span>
 
             {lastDecision ? (
               <>
@@ -634,20 +632,16 @@ export function MinerModule(_props: KNeuronModuleProps) {
                 </div>
               </>
             ) : (
-              <p className="miner-game__hint">
-                No decision yet. Run a trial to see the FBCCA scores.
-              </p>
+              <p className="miner-game__hint">No SSVEP decision yet.</p>
             )}
           </div>
 
           <button className="miner-game__secondary" type="button" onClick={resetGame}>
-            Restart game
+            NEW EXPEDITION
           </button>
 
           {import.meta.env.DEV ? (
-            <p className="miner-game__dev-note">
-              Development build: arrow keys move the miner without EEG.
-            </p>
+            <p className="miner-game__dev-note">DEV: arrow keys move the miner without EEG.</p>
           ) : null}
         </aside>
       </div>
@@ -665,7 +659,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
 
       {trialPhase === "error" ? (
         <div className="miner-game__trial-error-banner">
-          <strong>Trial failed</strong>
+          <span>SSVEP TRIAL ERROR</span>
 
           <p>{trialError}</p>
 
@@ -675,7 +669,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
               setPhase("idle");
             }}
           >
-            Close
+            CLOSE
           </button>
         </div>
       ) : null}
@@ -683,16 +677,18 @@ export function MinerModule(_props: KNeuronModuleProps) {
       {game.completed ? (
         <div className="miner-game__complete">
           <div className="miner-game__complete-card">
+            <span>EXPEDITION COMPLETE</span>
+
             <DiamondIcon />
 
             <h2>All diamonds collected</h2>
 
             <p>
-              {MINER_DIAMONDS.length} / {MINER_DIAMONDS.length} diamonds in {game.moves} moves
+              {MINER_DIAMONDS.length} / {MINER_DIAMONDS.length} diamonds · {game.moves} moves
             </p>
 
             <button type="button" onClick={resetGame}>
-              Play again
+              PLAY AGAIN
             </button>
           </div>
         </div>

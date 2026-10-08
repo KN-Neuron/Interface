@@ -14,8 +14,8 @@ export function MinerIcon() {
         strokeWidth="3"
         strokeLinecap="round"
       />
-      <path d="M30 67h40l9 20H21Z" fill="#168cff" />
-      <path d="M38 67v20M62 67v20" stroke="#8ac7ff" strokeWidth="4" />
+      <path d="M30 67h40l9 20H21Z" fill="#d71f27" />
+      <path d="M38 67v20M62 67v20" stroke="#ff9aa1" strokeWidth="4" />
     </svg>
   );
 }
