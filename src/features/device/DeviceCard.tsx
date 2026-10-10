@@ -1,6 +1,5 @@
 import type { DeviceInfo, DeviceStatus } from "../../core/devices/models/device";
 
-
 import { ModuleThumbnail } from "../../components/ModuleThumbnail";
 
 interface DeviceCardProps {
@@ -11,7 +10,6 @@ interface DeviceCardProps {
   onConnect: () => void;
   onDisconnect: () => void;
 }
-
 
 function formatTransport(transport: string): string {
   return transport.replace("-", " ").toUpperCase();
@@ -61,7 +59,6 @@ export function DeviceCard({
       </div>
 
       <div className="device-card__metadata">
-
         <div>
           <span>Transport</span>
           <strong>{formatTransport(device.transport)}</strong>

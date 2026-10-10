@@ -82,10 +82,6 @@ describe("resolveEEGChannels", () => {
 
     expect(result.complete).toBe(true);
 
-    expect(result.resolved.map((entry) => entry.channel.label)).toEqual([
-      "O1",
-      "Oz",
-      "PO3",
-    ]);
+    expect(result.resolved.map((entry) => entry.channel.label)).toEqual(["O1", "Oz", "PO3"]);
   });
 });

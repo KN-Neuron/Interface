@@ -6,7 +6,6 @@ import type { DeviceAdapter } from "./contracts/DeviceAdapter";
 
 import { deviceRegistry } from "./deviceRegistry";
 
-
 /**
  * Production hardware bundled with KNeuron.
  *

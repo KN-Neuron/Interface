@@ -363,10 +363,7 @@
   object-fit: contain;
   display: block;
 
-  filter: drop-shadow(
-    0 0 12px
-    rgba(255, 35, 55, 0.55)
-  );
+  filter: drop-shadow(0 0 12px rgba(255, 35, 55, 0.55));
 }
 
 .miner-game__legend {

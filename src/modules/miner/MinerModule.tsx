@@ -40,7 +40,6 @@ import type { GridPosition, MinerLastDecision, MinerTrialPhase } from "./models/
 
 import "./styles/miner.css";
 
-
 function positionKey(position: GridPosition): string {
   return `${position[0]}:${position[1]}`;
 }

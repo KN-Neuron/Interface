@@ -1,4 +1,3 @@
-
 interface BrainLogoProps {
   size?: number;
 }

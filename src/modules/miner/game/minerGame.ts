@@ -2,7 +2,6 @@ import type { MinerGameState, MinerMoveResult, GridPosition } from "../models/mi
 
 import type { SsvepDirection } from "../../../core/ssvep";
 
-
 export const MINER_BOARD_WIDTH = 7;
 
 export const MINER_BOARD_HEIGHT = 5;
