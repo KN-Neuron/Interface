@@ -2,10 +2,6 @@ import { BrainAccessEEGAdapter } from "./adapters/brainaccess/BrainAccessEEGAdap
 
 import { BrainLinkAdapter } from "./adapters/brainlink/BrainLinkAdapter";
 
-import { SimulationBrainMetricsAdapter } from "./adapters/simulation/SimulationBrainMetricsAdapter";
-
-import { SimulationEEGAdapter } from "./adapters/simulation/SimulationEEGAdapter";
-
 import type { DeviceAdapter } from "./contracts/DeviceAdapter";
 
 import { deviceRegistry } from "./deviceRegistry";
@@ -20,10 +16,6 @@ import { APP_CONFIG } from "../../config/appConfig";
  */
 function createBuiltInDevices(): DeviceAdapter[] {
   const devices: DeviceAdapter[] = [new BrainAccessEEGAdapter(), new BrainLinkAdapter()];
-
-  if (APP_CONFIG.enableSimulationDevices) {
-    devices.push(new SimulationEEGAdapter(), new SimulationBrainMetricsAdapter());
-  }
 
   return devices;
 }

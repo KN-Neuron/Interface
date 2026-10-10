@@ -117,6 +117,7 @@ const DEVICE_INFO: EEGDeviceInfo = {
   transport: "bluetooth",
   manufacturer: "BrainAccess",
   model: "MAXI 009",
+  thumbnail: "/devices/brainaccess-maxi.png",
 };
 
 /**

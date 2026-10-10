@@ -309,80 +309,19 @@
 
 .miner-game__rock {
   position: absolute;
+  inset: 8%;
+  z-index: 2;
 
-  inset: 12%;
-
-  transform: rotate(-4deg);
+  display: grid;
+  place-items: center;
 }
 
-.miner-game__rock span {
-  position: absolute;
+.miner-game__rock-image {
+  width: 90%;
+  height: 90%;
 
-  border: 1px solid #5c5c5c;
-
-  background: #2e2e2e;
-}
-
-.miner-game__rock span:nth-child(1) {
-  inset: 18% 8% 8% 18%;
-
-  clip-path: polygon(
-    15% 0,
-
-    82% 7%,
-
-    100% 49%,
-
-    74% 100%,
-
-    16% 84%,
-
-    0 37%
-  );
-}
-
-.miner-game__rock span:nth-child(2) {
-  top: 12%;
-
-  left: 7%;
-
-  width: 42%;
-
-  height: 35%;
-
-  clip-path: polygon(
-    20% 0,
-
-    100% 24%,
-
-    75% 100%,
-
-    0 80%
-  );
-
-  background: #3b3b3b;
-}
-
-.miner-game__rock span:nth-child(3) {
-  right: 5%;
-
-  bottom: 4%;
-
-  width: 35%;
-
-  height: 34%;
-
-  clip-path: polygon(
-    30% 0,
-
-    100% 20%,
-
-    84% 100%,
-
-    0 73%
-  );
-
-  background: #252525;
+  object-fit: contain;
+  display: block;
 }
 
 .miner-game__miner,
@@ -398,22 +337,36 @@
   place-items: center;
 }
 
-.miner-game__miner-svg {
-  width: 82%;
-
-  height: 82%;
-
-  color: #d71f27;
-
-  filter: drop-shadow(0 4px 13px rgba(0, 0, 0, 0.65));
+.miner-game__miner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
-.miner-game__diamond-svg {
-  width: 62%;
+.miner-game__miner,
+.miner-game__diamond {
+  position: absolute;
 
-  height: 62%;
+  z-index: 3;
 
-  filter: drop-shadow(0 0 12px rgba(215, 31, 39, 0.58));
+  inset: 8%;
+
+  display: grid;
+  place-items: center;
+}
+
+.miner-game__diamond-image {
+  width: 110%;
+  height: 110%;
+
+  object-fit: contain;
+  display: block;
+
+  filter: drop-shadow(
+    0 0 12px
+    rgba(255, 35, 55, 0.55)
+  );
 }
 
 .miner-game__legend {

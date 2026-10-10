@@ -1,28 +1,18 @@
 import type { DeviceInfo, DeviceStatus } from "../../core/devices/models/device";
-
 import type { EEGStreamInfo } from "../../core/devices/models/eeg";
 
 import { ModuleThumbnail } from "../../components/ModuleThumbnail";
 
 interface DeviceCardProps {
   device: Readonly<DeviceInfo>;
-
   status: Readonly<DeviceStatus>;
-
   streamInfo?: Readonly<EEGStreamInfo>;
-
   active: boolean;
-
   busy: boolean;
-
   onConnect: () => void;
-
   onDisconnect: () => void;
 }
 
-function formatDeviceKind(kind: string): string {
-  return kind.replace("-", " ").toUpperCase();
-}
 
 function formatTransport(transport: string): string {
   return transport.replace("-", " ").toUpperCase();
@@ -38,20 +28,20 @@ export function DeviceCard({
   onDisconnect,
 }: DeviceCardProps) {
   const connected = active && status.state === "connected";
-
   const connecting = active && status.state === "connecting";
-
   const disconnecting = active && status.state === "disconnecting";
 
   const buttonDisabled = busy || connecting || disconnecting;
 
   return (
     <article className={active ? "device-card device-card--active" : "device-card"}>
-      <ModuleThumbnail
-        src={device.thumbnail}
-        name={device.name}
-        className="device-card__thumbnail"
-      />
+      {device.thumbnail ? (
+        <ModuleThumbnail
+          src={device.thumbnail}
+          name={device.name}
+          className="device-card__thumbnail"
+        />
+      ) : null}
 
       <header className="device-card__header">
         <div>
@@ -67,44 +57,20 @@ export function DeviceCard({
         {device.model && (
           <>
             <span>·</span>
-
             <span>{device.model}</span>
           </>
         )}
       </div>
 
       <div className="device-card__metadata">
-        <div>
-          <span>Type</span>
-
-          <strong>{formatDeviceKind(device.kind)}</strong>
-        </div>
 
         <div>
           <span>Transport</span>
-
           <strong>{formatTransport(device.transport)}</strong>
         </div>
-
-        {streamInfo && (
-          <>
-            <div>
-              <span>Sampling rate</span>
-
-              <strong>{streamInfo.sampleRateHz} Hz</strong>
-            </div>
-
-            <div>
-              <span>Channels</span>
-
-              <strong>{streamInfo.channels.length}</strong>
-            </div>
-          </>
-        )}
       </div>
 
       {active && status.message && <p className="device-card__message">{status.message}</p>}
-
       {active && status.error && <p className="device-card__error">{status.error}</p>}
 
       <footer className="device-card__actions">

@@ -3,12 +3,12 @@ import type { KNeuronModuleManifest } from "../../types/module";
 export const minerManifest: KNeuronModuleManifest = {
   schemaVersion: 1,
   id: "taalon-miner",
-  name: "TaaLON Miner",
+  name: "Miner",
   version: "1.0.0",
-  description: "SSVEP-controlled mining game using the TaaLON FBCCA pipeline.",
+  description: "SSVEP-controlled mining game.",
   category: "GAME",
   appearance: {
-    thumbnail: "/modules/miner/thumbnail.webp",
+    thumbnail: "/modules/miner/thumbnail.png",
   },
   entryPoint: "/modules/taalon-miner",
   capabilities: {

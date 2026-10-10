@@ -5,10 +5,10 @@ export const neuorrunManifest: KNeuronModuleManifest = {
   id: "neuorrun",
   name: "Neuorrun",
   version: "1.0.0",
-  description: "Original Neuorrun Unity game integrated with BrainLink Lite attention control.",
+  description: "Neuorrun Unity game.",
   category: "GAME",
   appearance: {
-    thumbnail: "/modules/neuorrun/thumbnail.webp",
+    thumbnail: "/modules/neuorrun/thumbnail.png",
   },
   entryPoint: "/modules/neuorrun",
   capabilities: {

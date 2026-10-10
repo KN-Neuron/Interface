@@ -21,6 +21,8 @@ import { DiamondIcon } from "./components/DiamondIcon";
 
 import { MinerIcon } from "./components/MinerIcon";
 
+import { RockIcon } from "./components/RockIcon";
+
 import { SsvepOverlay } from "./components/SsvepOverlay";
 
 import {
@@ -37,6 +39,7 @@ import { useMinerEEG } from "./hooks/useMinerEEG";
 import type { GridPosition, MinerLastDecision, MinerTrialPhase } from "./models/miner";
 
 import "./styles/miner.css";
+
 
 function positionKey(position: GridPosition): string {
   return `${position[0]}:${position[1]}`;
@@ -469,9 +472,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
                   >
                     {isWall ? (
                       <div className="miner-game__rock">
-                        <span />
-                        <span />
-                        <span />
+                        <RockIcon />
                       </div>
                     ) : null}
 

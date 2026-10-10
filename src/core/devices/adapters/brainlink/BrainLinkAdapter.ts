@@ -21,6 +21,7 @@ const DEVICE_INFO: EEGDeviceInfo = {
   transport: "bluetooth",
   manufacturer: "Macrotellect",
   model: "BL002 V2.0",
+  thumbnail: "/devices/brainlink-lite.png",
 };
 
 /**
