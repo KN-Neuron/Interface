@@ -55,7 +55,6 @@ export function DevicePage() {
                   active={active}
                   busy={snapshot.busy}
                   status={getStatusForDevice(device.id)}
-                  streamInfo={streamInfoByDeviceId[device.id]}
                   onConnect={() => {
                     void connect(device.id);
                   }}
