@@ -1,1 +1,24 @@
-{"main-capability":{"identifier":"main-capability","description":"Minimal permissions required by the KNeuron custom title bar and approved sidecars.","local":true,"windows":["main"],"permissions":["core:window:allow-close","core:window:allow-minimize","core:window:allow-toggle-maximize","core:window:allow-start-dragging","shell:allow-stdin-write","shell:allow-kill",{"identifier":"shell:allow-spawn","allow":[{"name":"binaries/brainaccess-bridge","sidecar":true},{"name":"binaries/ssvep-classifier","sidecar":true},{"name":"binaries/brainlink-bridge","sidecar":true}]}]}}
+{
+  "main-capability": {
+    "identifier": "main-capability",
+    "description": "Minimal permissions required by the KNeuron custom title bar and approved sidecars.",
+    "local": true,
+    "windows": ["main"],
+    "permissions": [
+      "core:window:allow-close",
+      "core:window:allow-minimize",
+      "core:window:allow-toggle-maximize",
+      "core:window:allow-start-dragging",
+      "shell:allow-stdin-write",
+      "shell:allow-kill",
+      {
+        "identifier": "shell:allow-spawn",
+        "allow": [
+          { "name": "binaries/brainaccess-bridge", "sidecar": true },
+          { "name": "binaries/ssvep-classifier", "sidecar": true },
+          { "name": "binaries/brainlink-bridge", "sidecar": true }
+        ]
+      }
+    ]
+  }
+}

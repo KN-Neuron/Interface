@@ -11,7 +11,6 @@ interface DeviceCardProps {
   onDisconnect: () => void;
 }
 
-
 function formatTransport(transport: string): string {
   return transport.replace("-", " ").toUpperCase();
 }
@@ -60,7 +59,6 @@ export function DeviceCard({
       </div>
 
       <div className="device-card__metadata">
-
         <div>
           <span>Transport</span>
           <strong>{formatTransport(device.transport)}</strong>
