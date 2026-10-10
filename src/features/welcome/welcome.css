@@ -114,3 +114,9 @@
 .welcome-screen h1::first-letter {
   color: #d71f27;
 }
+
+.welcome-screen__logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: -10px;
+}

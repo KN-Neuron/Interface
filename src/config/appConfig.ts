@@ -4,7 +4,7 @@
  * Runtime user preferences belong in SettingsStore.
  */
 export const APP_CONFIG = {
-  name: "KNeuron",
+  name: "Neuron",
 
   version: "0.2.7",
 

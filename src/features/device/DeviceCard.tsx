@@ -1,12 +1,11 @@
 import type { DeviceInfo, DeviceStatus } from "../../core/devices/models/device";
-import type { EEGStreamInfo } from "../../core/devices/models/eeg";
+
 
 import { ModuleThumbnail } from "../../components/ModuleThumbnail";
 
 interface DeviceCardProps {
   device: Readonly<DeviceInfo>;
   status: Readonly<DeviceStatus>;
-  streamInfo?: Readonly<EEGStreamInfo>;
   active: boolean;
   busy: boolean;
   onConnect: () => void;
@@ -21,7 +20,6 @@ function formatTransport(transport: string): string {
 export function DeviceCard({
   device,
   status,
-  streamInfo,
   active,
   busy,
   onConnect,

@@ -23,7 +23,7 @@ export function TitleBar() {
         <BrainLogo size={44} />
         <div className="brand__text" data-tauri-drag-region>
           <strong data-tauri-drag-region>{APP_CONFIG.name}</strong>
-          <span data-tauri-drag-region>Modular Brain-Computer Interface</span>
+          <span data-tauri-drag-region>Brain-Computer Interface</span>
         </div>
       </div>
 
