@@ -1,5 +1,12 @@
+import { MonitorOff } from "lucide-react";
+
 import { useDevice } from "../features/device/useDevice";
 
+import { ModuleThumbnail } from "./ModuleThumbnail";
+
+/**
+ * Right-hand panel with the active device.
+ */
 export function DevicePanel() {
   const { snapshot, streamInfoByDeviceId } = useDevice();
 
@@ -7,63 +14,62 @@ export function DevicePanel() {
 
   const activeStatus = snapshot.activeStatus;
 
+  const state = activeStatus?.state ?? "disconnected";
+
   const streamInfo = snapshot.activeDeviceId
     ? streamInfoByDeviceId[snapshot.activeDeviceId]
     : undefined;
 
   return (
-    <aside className="device-panel">
-      <div className="device-panel__header">
-        <span className="eyebrow">DEVICE</span>
-
+    <aside className="device-panel" aria-label="Device">
+      <header className="device-panel__header">
+        <span className="eyebrow">Device</span>
         <h2>Device</h2>
-      </div>
+      </header>
 
       {!activeDevice ? (
         <div className="device-panel__empty">
-          <span className="device-panel__dot" />
+          <MonitorOff size={64} strokeWidth={1.25} />
 
           <strong>No device connected</strong>
 
-          <p>Select a device from the Device page.</p>
+          <span>Select a device from the Device page.</span>
         </div>
       ) : (
         <div className="device-panel__active">
-          <div className="device-panel__status">
-            <span
-              className={`device-panel__dot device-panel__dot--${activeStatus?.state ?? "disconnected"}`}
-            />
-
-            <span>{activeStatus?.state ?? "disconnected"}</span>
-          </div>
+          <ModuleThumbnail
+            src={activeDevice.thumbnail}
+            name={activeDevice.name}
+            className="device-panel__thumbnail"
+          />
 
           <strong className="device-panel__name">{activeDevice.name}</strong>
 
-          {activeDevice.model && <span className="device-panel__model">{activeDevice.model}</span>}
+          <span className="device-panel__state">
+            <span className={`device-panel__dot device-panel__dot--${state}`} />
+            {state}
+          </span>
 
-          <div className="device-panel__details">
+          <dl className="device-panel__details">
             <div>
-              <span>Type</span>
-
-              <strong>{activeDevice.kind}</strong>
+              <dt>Type</dt>
+              <dd>{activeDevice.kind}</dd>
             </div>
 
             {streamInfo && (
               <>
                 <div>
-                  <span>Rate</span>
-
-                  <strong>{streamInfo.sampleRateHz} Hz</strong>
+                  <dt>Rate</dt>
+                  <dd>{streamInfo.sampleRateHz} Hz</dd>
                 </div>
 
                 <div>
-                  <span>Channels</span>
-
-                  <strong>{streamInfo.channels.length}</strong>
+                  <dt>Channels</dt>
+                  <dd>{streamInfo.channels.length}</dd>
                 </div>
               </>
             )}
-          </div>
+          </dl>
         </div>
       )}
     </aside>

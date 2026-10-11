@@ -10,11 +10,11 @@
 
   padding: 18px 20px;
 
-  color: #edf5ff;
+  color: #f6f6f6;
 
   background:
-    radial-gradient(circle at 30% 15%, rgba(15, 79, 135, 0.18), transparent 30%),
-    linear-gradient(180deg, #030a12 0%, #02070c 100%);
+    radial-gradient(circle at 30% 15%, rgba(62, 62, 62, 0.18), transparent 30%),
+    linear-gradient(180deg, #090909 0%, #060606 100%);
 
   overflow: hidden;
 }
@@ -36,9 +36,8 @@
   margin-bottom: 14px;
 }
 
-.miner-game__eyebrow,
 .miner-game__section-label {
-  color: #168cff;
+  color: #d71f27;
 
   font-size: 10px;
 
@@ -59,7 +58,7 @@
 .miner-game__header p {
   margin: 0;
 
-  color: #91a7bb;
+  color: #a6a6a6;
 
   font-size: 13px;
 
@@ -83,9 +82,9 @@
 
   padding: 13px 16px;
 
-  border: 1px solid #18334c;
+  border: 1px solid #292929;
 
-  background: #06111d;
+  background: #0e0e0e;
 }
 
 .miner-game__stream > div {
@@ -97,7 +96,7 @@
 }
 
 .miner-game__stream small {
-  color: #6f879d;
+  color: #868686;
 
   font-size: 9px;
 
@@ -117,7 +116,7 @@
 
   border-radius: 50%;
 
-  background: #65788a;
+  background: #787878;
 }
 
 .miner-game__status-dot--streaming {
@@ -158,9 +157,9 @@
   min-width: 0;
   min-height: 0;
 
-  border: 1px solid #17324a;
+  border: 1px solid #282828;
 
-  background: #06111c;
+  background: #0e0e0e;
 
   overflow: hidden;
 }
@@ -171,9 +170,9 @@
 
   min-height: 0;
 
-  border: 1px solid #17324a;
+  border: 1px solid #282828;
 
-  background: #06111c;
+  background: #0e0e0e;
 
   overflow-y: auto;
 }
@@ -189,7 +188,7 @@
 
   min-height: 58px;
 
-  border-bottom: 1px solid #17324a;
+  border-bottom: 1px solid #282828;
 }
 
 .miner-game__mission-bar > div {
@@ -203,11 +202,11 @@
 
   padding: 0 17px;
 
-  border-right: 1px solid #112b41;
+  border-right: 1px solid #222222;
 }
 
 .miner-game__mission-bar small {
-  color: #687f94;
+  color: #7e7e7e;
 
   font-size: 9px;
 
@@ -215,7 +214,7 @@
 }
 
 .miner-game__mission-bar strong {
-  color: #ddecfa;
+  color: #ececec;
 
   font-size: 17px;
 }
@@ -223,7 +222,7 @@
 .miner-game__mission-message {
   border-right: 0 !important;
 
-  color: #9bb0c3;
+  color: #afafaf;
 
   font-size: 12px;
 
@@ -250,11 +249,11 @@
   padding: 14px;
 
   background:
-    linear-gradient(rgba(4, 13, 22, 0.36), rgba(4, 13, 22, 0.36)),
+    linear-gradient(rgba(11, 11, 11, 0.36), rgba(11, 11, 11, 0.36)),
     repeating-linear-gradient(
       135deg,
-      rgba(22, 140, 255, 0.025) 0,
-      rgba(22, 140, 255, 0.025) 1px,
+      rgba(215, 31, 39, 0.025) 0,
+      rgba(215, 31, 39, 0.025) 1px,
       transparent 1px,
       transparent 11px
     );
@@ -270,7 +269,7 @@
 
   aspect-ratio: 1;
 
-  border: 1px solid #142f45;
+  border: 1px solid #242424;
 
   overflow: hidden;
 }
@@ -280,10 +279,10 @@
     radial-gradient(
       circle at 40% 35%,
 
-      rgba(27, 87, 111, 0.17),
+      rgba(57, 57, 57, 0.17),
       transparent 50%
     ),
-    #081723;
+    #121212;
 }
 
 .miner-game__cell--open::after {
@@ -299,91 +298,30 @@
 
   content: "";
 
-  background: #12344b;
+  background: #262626;
 }
 
 .miner-game__cell--wall {
-  border-color: #25394a;
+  border-color: #2e2e2e;
 
-  background: linear-gradient(145deg, #192733, #0d1720);
+  background: linear-gradient(145deg, #1f1f1f, #121212);
 }
 
 .miner-game__rock {
   position: absolute;
+  inset: 8%;
+  z-index: 2;
 
-  inset: 12%;
-
-  transform: rotate(-4deg);
+  display: grid;
+  place-items: center;
 }
 
-.miner-game__rock span {
-  position: absolute;
+.miner-game__rock-image {
+  width: 90%;
+  height: 90%;
 
-  border: 1px solid #476070;
-
-  background: #283b48;
-}
-
-.miner-game__rock span:nth-child(1) {
-  inset: 18% 8% 8% 18%;
-
-  clip-path: polygon(
-    15% 0,
-
-    82% 7%,
-
-    100% 49%,
-
-    74% 100%,
-
-    16% 84%,
-
-    0 37%
-  );
-}
-
-.miner-game__rock span:nth-child(2) {
-  top: 12%;
-
-  left: 7%;
-
-  width: 42%;
-
-  height: 35%;
-
-  clip-path: polygon(
-    20% 0,
-
-    100% 24%,
-
-    75% 100%,
-
-    0 80%
-  );
-
-  background: #354c5c;
-}
-
-.miner-game__rock span:nth-child(3) {
-  right: 5%;
-
-  bottom: 4%;
-
-  width: 35%;
-
-  height: 34%;
-
-  clip-path: polygon(
-    30% 0,
-
-    100% 20%,
-
-    84% 100%,
-
-    0 73%
-  );
-
-  background: #1d303d;
+  object-fit: contain;
+  display: block;
 }
 
 .miner-game__miner,
@@ -399,22 +337,33 @@
   place-items: center;
 }
 
-.miner-game__miner-svg {
-  width: 82%;
-
-  height: 82%;
-
-  color: #168cff;
-
-  filter: drop-shadow(0 4px 13px rgba(0, 0, 0, 0.65));
+.miner-game__miner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
-.miner-game__diamond-svg {
-  width: 62%;
+.miner-game__miner,
+.miner-game__diamond {
+  position: absolute;
 
-  height: 62%;
+  z-index: 3;
 
-  filter: drop-shadow(0 0 12px rgba(34, 191, 255, 0.58));
+  inset: 8%;
+
+  display: grid;
+  place-items: center;
+}
+
+.miner-game__diamond-image {
+  width: 110%;
+  height: 110%;
+
+  object-fit: contain;
+  display: block;
+
+  filter: drop-shadow(0 0 12px rgba(255, 35, 55, 0.55));
 }
 
 .miner-game__legend {
@@ -428,9 +377,9 @@
 
   padding: 0 18px;
 
-  border-top: 1px solid #17324a;
+  border-top: 1px solid #282828;
 
-  color: #6f879d;
+  color: #868686;
 
   font-size: 9px;
 
@@ -454,23 +403,23 @@
 }
 
 .miner-game__legend-miner {
-  background: #168cff;
+  background: #d71f27;
 }
 
 .miner-game__legend-diamond {
   transform: rotate(45deg);
 
-  background: #22c4ff;
+  background: #d71f27;
 }
 
 .miner-game__legend-rock {
-  background: #435968;
+  background: #565656;
 }
 
 .miner-game__section {
   padding: 18px;
 
-  border-bottom: 1px solid #17324a;
+  border-bottom: 1px solid #282828;
 }
 
 .miner-game__section h2 {
@@ -494,11 +443,11 @@
 .miner-game__section-heading button {
   padding: 4px 8px;
 
-  border: 1px solid #1d527b;
+  border: 1px solid #3e3e3e;
 
-  color: #8bc8ff;
+  color: #ef6a6f;
 
-  background: #071b2c;
+  background: #151515;
 
   font-size: 9px;
 
@@ -512,11 +461,11 @@
 
   min-height: 43px;
 
-  border: 1px solid #168cff;
+  border: 1px solid #d71f27;
 
   color: #ffffff;
 
-  background: linear-gradient(90deg, #0856d9, #0b85ff);
+  background: linear-gradient(90deg, #db0610, #d71f27);
 
   font-size: 11px;
 
@@ -538,11 +487,11 @@
 
   width: calc(100% - 36px);
 
-  border-color: #31506a;
+  border-color: #4e4e4e;
 
-  color: #acc2d6;
+  color: #c1c1c1;
 
-  background: #0a1824;
+  background: #131313;
 }
 
 .miner-game__frequency-list {
@@ -565,7 +514,7 @@
 
   gap: 8px;
 
-  color: #b9cbda;
+  color: #cacaca;
 
   font-size: 11px;
 }
@@ -575,23 +524,23 @@
 
   padding: 7px 8px;
 
-  border: 1px solid #1d3e59;
+  border: 1px solid #303030;
 
   outline: none;
 
   color: #ffffff;
 
-  background: #040c13;
+  background: #090909;
 
   text-align: right;
 }
 
 .miner-game__frequency-list input:focus {
-  border-color: #168cff;
+  border-color: #d71f27;
 }
 
 .miner-game__frequency-list small {
-  color: #627b91;
+  color: #7a7a7a;
 }
 
 .miner-game__duration {
@@ -608,11 +557,11 @@
 }
 
 .miner-game__duration button {
-  border: 1px solid #274763;
+  border: 1px solid #393939;
 
-  color: #a7c5dc;
+  color: #c2c2c2;
 
-  background: #081521;
+  background: #111111;
 
   cursor: pointer;
 }
@@ -628,11 +577,11 @@
 
   place-items: center;
 
-  border: 1px solid #173650;
+  border: 1px solid #2a2a2a;
 
-  color: #eef7ff;
+  color: #f6f6f6;
 
-  background: #071522;
+  background: #111111;
 
   font-size: 14px;
 }
@@ -641,7 +590,7 @@
 .miner-game__dev-note {
   margin: 10px 0 0;
 
-  color: #71879a;
+  color: #858585;
 
   font-size: 10px;
 
@@ -659,13 +608,13 @@
 
   padding: 11px;
 
-  border: 1px solid #1b4768;
+  border: 1px solid #363636;
 
-  background: #071a29;
+  background: #141414;
 }
 
 .miner-game__winner span {
-  color: #39b9ff;
+  color: #d71f27;
 
   font-weight: 700;
 }
@@ -685,7 +634,7 @@
 
   padding: 6px 1px;
 
-  color: #8ea5b8;
+  color: #a3a3a3;
 
   font-size: 10px;
 }
@@ -738,7 +687,7 @@
 
   inset: 0;
 
-  background: #02060a;
+  background: #050505;
 }
 
 .miner-ssvep-overlay__countdown,
@@ -760,9 +709,9 @@
 
   padding: 38px;
 
-  border: 1px solid #1d405c;
+  border: 1px solid #323232;
 
-  background: #06111c;
+  background: #0e0e0e;
 
   text-align: center;
 
@@ -772,7 +721,7 @@
 .miner-ssvep-overlay__countdown > span,
 .miner-ssvep-overlay__analyzing > span,
 .miner-game__complete-card > span {
-  color: #168cff;
+  color: #d71f27;
 
   font-size: 10px;
 
@@ -806,7 +755,7 @@
 .miner-ssvep-overlay__countdown p,
 .miner-ssvep-overlay__analyzing p,
 .miner-game__complete-card p {
-  color: #7f96aa;
+  color: #949494;
 
   font-size: 12px;
 }
@@ -817,7 +766,7 @@
 
   border: 0;
 
-  color: #688198;
+  color: #808080;
 
   background: none;
 
@@ -839,7 +788,7 @@
 
   transform: translateX(-50%);
 
-  color: #e9edf1;
+  color: #ededed;
 
   font-size: 15px;
 
@@ -945,7 +894,7 @@
 
   gap: 14px;
 
-  color: #a6b0b8;
+  color: #afafaf;
 
   font-size: 10px;
 }
@@ -961,7 +910,7 @@
 .miner-ssvep-overlay__progress > div {
   height: 100%;
 
-  background: #168cff;
+  background: #d71f27;
 }
 
 .miner-ssvep-overlay__footer button {
@@ -973,7 +922,7 @@
 
   margin: 30px 0;
 
-  background: linear-gradient(90deg, transparent, #168cff, transparent);
+  background: linear-gradient(90deg, transparent, #d71f27, transparent);
 
   animation: miner-scanner 1.2s linear infinite;
 }

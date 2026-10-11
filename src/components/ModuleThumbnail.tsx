@@ -3,32 +3,28 @@ import { useState } from "react";
 interface ModuleThumbnailProps {
   src?: string;
   name: string;
+  /**
+   * Extra class for placement, e.g. on device cards.
+   */
+  className?: string;
 }
 
 /**
- * Displays a module thumbnail with a deterministic fallback.
+ * Displays a module or device thumbnail.
  *
- * A broken or missing thumbnail must never break the launcher layout.
+ * Renders nothing when no image is set or it fails to load, so the layout
+ * closes the gap instead of showing a placeholder.
  */
-export function ModuleThumbnail({ src, name }: ModuleThumbnailProps) {
+export function ModuleThumbnail({ src, name, className }: ModuleThumbnailProps) {
   const [imageFailed, setImageFailed] = useState(false);
 
-  const showFallback = !src || imageFailed;
-
-  if (showFallback) {
-    return (
-      <div
-        className="module-thumbnail module-thumbnail--fallback"
-        aria-label={`${name} thumbnail unavailable`}
-      >
-        <span>{name.charAt(0).toUpperCase()}</span>
-      </div>
-    );
+  if (!src || imageFailed) {
+    return null;
   }
 
   return (
     <img
-      className="module-thumbnail"
+      className={["module-thumbnail", className].filter(Boolean).join(" ")}
       src={src}
       alt={`${name} thumbnail`}
       draggable={false}

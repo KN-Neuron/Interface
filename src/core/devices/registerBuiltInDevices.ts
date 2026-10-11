@@ -9,10 +9,13 @@ import { deviceRegistry } from "./deviceRegistry";
 /**
  * Production hardware bundled with KNeuron.
  *
- * Simulation EEG was intentionally removed from the production Device page.
+ * Simulation devices are registered only in development builds so the UI
+ * and modules can be worked on without physical hardware.
  */
 function createBuiltInDevices(): DeviceAdapter[] {
-  return [new BrainAccessEEGAdapter(), new BrainLinkAdapter()];
+  const devices: DeviceAdapter[] = [new BrainAccessEEGAdapter(), new BrainLinkAdapter()];
+
+  return devices;
 }
 
 export function registerBuiltInDevices(): void {

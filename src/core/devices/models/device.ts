@@ -65,6 +65,13 @@ export interface DeviceInfo {
    * Optional hardware model.
    */
   model?: string;
+
+  /**
+   * Optional picture of the device shown on the Device page and in the
+   * device panel, e.g. "/devices/brainaccess-maxi.webp" (served from public/).
+   * A placeholder is shown when it is missing or fails to load.
+   */
+  thumbnail?: string;
 }
 
 /**

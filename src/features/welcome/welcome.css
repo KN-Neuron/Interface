@@ -16,7 +16,7 @@
   border: none;
   outline: none;
 
-  background: #02070c;
+  background: #000000;
 
   overflow: hidden;
 }
@@ -44,7 +44,7 @@
 
   border: none;
 
-  color: #f2f7ff;
+  color: #ffffff;
 
   font-size: 72px;
   font-weight: 650;
@@ -78,7 +78,7 @@
   outline: none;
   background: transparent;
 
-  color: #8295a5;
+  color: #8a8a8a;
 
   font-size: 13px;
   font-weight: 400;
@@ -108,4 +108,15 @@
     opacity: 0;
     transform: translateY(-6px);
   }
+}
+
+/* KNeuron wordmark: red K, matching the title bar. */
+.welcome-screen h1::first-letter {
+  color: #d71f27;
+}
+
+.welcome-screen__logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: -10px;
 }

@@ -1,18 +1,25 @@
-import { Cpu, LayoutDashboard, Settings } from "lucide-react";
-import type { ShellPage } from "../types/navigation";
-import { APP_CONFIG } from "../config/appConfig";
+import { LayoutGrid, Monitor, Settings } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const items: Array<{ id: ShellPage; label: string; icon: typeof LayoutDashboard }> = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "device", label: "Device", icon: Cpu },
+import { APP_CONFIG } from "../config/appConfig";
+import type { ShellPage } from "../types/navigation";
+
+const items: Array<{ id: ShellPage; label: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+  { id: "device", label: "Device", icon: Monitor },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
+/**
+ * Left navigation with the app version at the bottom.
+ *
+ * `page` is null while a module is open, so no item is marked current.
+ */
 export function Sidebar({
   page,
   onNavigate,
 }: {
-  page: ShellPage;
+  page: ShellPage | null;
   onNavigate: (page: ShellPage) => void;
 }) {
   return (
@@ -21,28 +28,23 @@ export function Sidebar({
         {items.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            type="button"
             className={page === id ? "nav-item active" : "nav-item"}
+            aria-current={page === id ? "page" : undefined}
             onClick={() => onNavigate(id)}
           >
-            <Icon size={21} />
-            <span>{label}</span>
+            <Icon size={24} strokeWidth={1.5} />
+            {label}
           </button>
         ))}
       </nav>
-      <div className="wave" aria-hidden="true">
-        <svg viewBox="0 0 240 170" preserveAspectRatio="none">
-          {Array.from({ length: 13 }, (_, i) => (
-            <path
-              key={i}
-              d={`M-10 ${72 + i * 5} C 45 ${25 + i * 4}, 82 ${145 - i * 2}, 145 ${91 + i * 2} S 225 ${58 + i * 3}, 255 ${95 + i * 2}`}
-            />
-          ))}
-        </svg>
+
+      <div className="sidebar__footer">
+        <strong>
+          {APP_CONFIG.name} v{APP_CONFIG.version}
+        </strong>
+        <span>Built for Brain-Computer Interface</span>
       </div>
-      <strong>
-        {APP_CONFIG.name} v{APP_CONFIG.version}
-      </strong>
-      <span>Built for Brain-Computer Interface</span>
     </aside>
   );
 }

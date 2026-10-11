@@ -21,6 +21,8 @@ import { DiamondIcon } from "./components/DiamondIcon";
 
 import { MinerIcon } from "./components/MinerIcon";
 
+import { RockIcon } from "./components/RockIcon";
+
 import { SsvepOverlay } from "./components/SsvepOverlay";
 
 import {
@@ -375,8 +377,6 @@ export function MinerModule(_props: KNeuronModuleProps) {
     <section className="miner-game">
       <header className="miner-game__header">
         <div>
-          <span className="miner-game__eyebrow">TAALON / SSVEP GAME</span>
-
           <h1>Deep Core Expedition</h1>
 
           <p>Collect all diamonds. Each FBCCA decision moves the miner by one cell.</p>
@@ -471,9 +471,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
                   >
                     {isWall ? (
                       <div className="miner-game__rock">
-                        <span />
-                        <span />
-                        <span />
+                        <RockIcon />
                       </div>
                     ) : null}
 

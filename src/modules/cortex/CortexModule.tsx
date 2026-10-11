@@ -314,7 +314,6 @@ export function CortexModule(_props: KNeuronModuleProps) {
         {calibration.visible && (
           <div className="cortex-calibration-overlay">
             <div className="cortex-calibration-card">
-              <span className="eyebrow">CORTEX CALIBRATION</span>
               <h2>{calibration.title}</h2>
               <p>{calibration.hint}</p>
 
@@ -338,7 +337,6 @@ export function CortexModule(_props: KNeuronModuleProps) {
 
       <aside className="cortex-controls">
         <div className="cortex-controls__title">
-          <span className="eyebrow">CORTEX 3D</span>
           <h2>EEG Cortex</h2>
           <p>BrainDance renderer + frozen-baseline Cortex processing.</p>
         </div>

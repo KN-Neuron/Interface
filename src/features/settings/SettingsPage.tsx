@@ -31,8 +31,6 @@ export function SettingsPage() {
   return (
     <section className="settings-page">
       <header className="settings-page__header">
-        <span className="eyebrow">KNEURON</span>
-
         <h1>Settings</h1>
 
         <p>Configure global KNeuron application behaviour.</p>

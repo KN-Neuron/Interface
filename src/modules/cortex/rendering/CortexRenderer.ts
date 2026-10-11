@@ -53,13 +53,14 @@ varying float vField;
 void main() {
   float q = clamp((vField - 0.18) / 0.82, 0.0, 1.0);
 
-  vec3 base = vec3(0.07, 0.24, 0.36);
-  vec3 cyan = vec3(0.21, 0.66, 0.84);
-  vec3 red = vec3(1.0, 0.19, 0.15);
+  // Instrument palette: resting tissue, phosphor trace, signal orange.
+  vec3 base = vec3(0.16, 0.24, 0.23);
+  vec3 trace = vec3(0.56, 0.85, 0.75);
+  vec3 hot = vec3(0.97, 0.40, 0.03);
 
   vec3 color = q < 0.45
-    ? mix(base, cyan, q / 0.45)
-    : mix(cyan, red, (q - 0.45) / 0.55);
+    ? mix(base, trace, q / 0.45)
+    : mix(trace, hot, (q - 0.45) / 0.55);
 
   gl_FragColor = vec4(color, 0.94);
 }
@@ -112,6 +113,13 @@ export class CortexRenderer {
   private brainModel: THREE.Group | null = null;
   private brainBase: THREE.Object3D | null = null;
   private brainWire: THREE.Object3D | null = null;
+
+  /**
+   * The wireframe overlay draws every edge of the brain mesh (~750k lines on
+   * the medium model). ANGLE/Direct3D emulates WebGL lines slowly, which made
+   * rotation stutter in WebView2, so the overlay is not drawn.
+   */
+  private wireVisible = false;
   private brainEEG: THREE.Object3D | null = null;
 
   private brainCenter = new THREE.Vector3();
@@ -159,17 +167,23 @@ export class CortexRenderer {
     this.scene.background = new THREE.Color(0x000000);
     this.scene.add(this.brainRoot);
 
+    // Brain model axes: +X right, +Y anterior (nose), +Z superior (top of
+    // the head). Orbiting around Z turns the head like a turntable; with the
+    // default Y-up, horizontal drags rolled the head over its nose axis.
+    this.camera.up.set(0, 0, 1);
     this.camera.position.set(0, 0.55, 5.4);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0, 0.48, 0);
     this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.12;
+    this.controls.rotateSpeed = 0.8;
     this.controls.enablePan = false;
 
     this.scalpMesh = new THREE.Mesh(
       new THREE.SphereGeometry(1, 40, 28),
       new THREE.MeshBasicMaterial({
-        color: 0x4fa5c7,
+        color: 0x5d9283,
         wireframe: true,
         transparent: true,
         opacity: 0.12,
@@ -243,6 +257,7 @@ export class CortexRenderer {
     const model = new THREE.Group();
     this.brainBase = this.cloneLayer(source, () => this.createBaseMaterial(), false);
     this.brainWire = this.cloneLayer(source, () => this.createWireMaterial(), false);
+    this.brainWire.visible = this.wireVisible;
     this.brainEEG = this.cloneLayer(source, () => this.createEEGMaterial(), true);
 
     model.add(this.brainBase, this.brainWire, this.brainEEG);
@@ -305,7 +320,7 @@ export class CortexRenderer {
     this.markers.forEach((marker) => {
       const material = marker.material;
       if (material instanceof THREE.MeshBasicMaterial) {
-        material.color.set(0x39b8ff);
+        material.color.set(0x8ed9c0);
       }
     });
 
@@ -314,7 +329,7 @@ export class CortexRenderer {
     const material = selected.material;
 
     if (material instanceof THREE.MeshBasicMaterial) {
-      material.color.set(0xffd54a);
+      material.color.set(0xf76707);
     }
 
     this.transformControls.attach(selected);
@@ -379,7 +394,7 @@ export class CortexRenderer {
   }
 
   refitCamera(): void {
-    this.fitCameraToBrain();
+    this.fitCameraToBrain(false);
     this.updateViewport(false);
   }
 
@@ -435,7 +450,12 @@ export class CortexRenderer {
     this.controls.update();
     this.renderer.setRenderTarget(null);
     this.renderer.render(this.scene, this.camera);
-    this.labelRenderer.render(this.scene, this.camera);
+
+    // CSS2D labels touch the DOM for every electrode. They are only visible
+    // in edit mode, so skip the per-frame DOM work otherwise.
+    if (this.editMode && this.labelsVisible) {
+      this.labelRenderer.render(this.scene, this.camera);
+    }
   };
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
@@ -489,7 +509,7 @@ export class CortexRenderer {
 
   private createWireMaterial(): THREE.Material {
     return new THREE.MeshBasicMaterial({
-      color: 0xa9e8ff,
+      color: 0x8ed9c0,
       wireframe: true,
       transparent: true,
       opacity: 0.32,
@@ -581,7 +601,13 @@ export class CortexRenderer {
    * vertical FOV. This is important when the KNeuron module viewport changes
    * aspect ratio as shell panels collapse or the desktop window is resized.
    */
-  private fitCameraToBrain(): void {
+  /**
+   * Fits the camera distance to the brain and the current viewport.
+   *
+   * keepDirection = true preserves the user's orbit (used on resize, e.g.
+   * while dragging a panel edge); false resets to the top view.
+   */
+  private fitCameraToBrain(keepDirection = false): void {
     if (!this.brainModel || !this.brainBase) {
       return;
     }
@@ -609,11 +635,26 @@ export class CortexRenderer {
     const depthAllowance = size.z / 2;
     const distance = (Math.max(distanceX, distanceY) + depthAllowance) * 1.18;
 
+    // Start in the top (scalp-map) view with the nose pointing up. A tiny
+    // offset towards the back keeps the camera off the orbit pole, where the
+    // view direction would be undefined.
+    const poleOffset = distance * 0.001;
+    const largestSide = Math.max(size.x, size.y, size.z);
+
+    const direction = this.camera.position.clone().sub(this.controls.target);
+
     this.controls.target.copy(center);
-    this.camera.position.set(center.x, center.y, center.z + distance);
+
+    if (keepDirection && direction.lengthSq() > 0) {
+      this.camera.position.copy(center).addScaledVector(direction.normalize(), distance);
+    } else {
+      this.camera.position.set(center.x, center.y - poleOffset, center.z + distance);
+    }
+
     this.camera.lookAt(center);
-    this.camera.near = Math.max(0.01, distance - size.z * 1.5);
-    this.camera.far = Math.max(100, distance + size.z * 4);
+    // Near/far must cover every orbit angle, not only the top view.
+    this.camera.near = Math.max(0.01, distance - largestSide * 1.5);
+    this.camera.far = Math.max(100, distance + largestSide * 4);
     this.camera.updateProjectionMatrix();
     this.controls.update();
   }
@@ -643,7 +684,7 @@ export class CortexRenderer {
     this.camera.updateProjectionMatrix();
 
     if (refit && this.hasBrainBounds) {
-      this.fitCameraToBrain();
+      this.fitCameraToBrain(true);
     }
 
     this.controls.update();
@@ -677,7 +718,7 @@ export class CortexRenderer {
     this.electrodes.slice(0, MAX_ELECTRODES).forEach((electrode, index) => {
       const marker = new THREE.Mesh(
         new THREE.SphereGeometry(0.055, 14, 10),
-        new THREE.MeshBasicMaterial({ color: 0x39b8ff }),
+        new THREE.MeshBasicMaterial({ color: 0x8ed9c0 }),
       );
 
       marker.position.fromArray(electrode.position);
@@ -723,6 +764,9 @@ export class CortexRenderer {
     this.labels.forEach((label) => {
       label.visible = this.editMode && this.labelsVisible;
     });
+
+    // Apply label visibility immediately; renderFrame skips hidden labels.
+    this.labelRenderer.render(this.scene, this.camera);
 
     this.guidesGroup.visible = this.editMode;
     this.selectGuide.visible = this.editMode;

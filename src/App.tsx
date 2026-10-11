@@ -176,7 +176,7 @@ export default function App() {
     }
   }
 
-  const activeSidebarPage: ShellPage = route.kind === "shell" ? route.page : "dashboard";
+  const activeSidebarPage: ShellPage | null = route.kind === "shell" ? route.page : null;
 
   const isModuleOpen = route.kind === "module";
 

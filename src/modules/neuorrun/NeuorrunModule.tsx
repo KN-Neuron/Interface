@@ -197,7 +197,6 @@ export function NeuorrunModule({ onRequestClose }: KNeuronModuleProps): JSX.Elem
     <section className="neuorrun-module">
       <header className="neuorrun-module__bar">
         <div>
-          <span className="neuorrun-module__eyebrow">NEUORRUN / BRAINLINK</span>
           <strong>Neuorrun</strong>
         </div>
 

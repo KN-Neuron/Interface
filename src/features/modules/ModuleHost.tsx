@@ -32,8 +32,6 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
         </header>
 
         <div className="module-host__fallback">
-          <span className="eyebrow">KNEURON MODULE</span>
-
           <h1>Module unavailable</h1>
 
           <p>The requested module is not registered.</p>
@@ -58,8 +56,6 @@ export function ModuleHost({ moduleId, onBack }: ModuleHostProps) {
         </header>
 
         <div className="module-host__fallback">
-          <span className="eyebrow">KNEURON MODULE</span>
-
           <h1>{registeredModule.manifest.name}</h1>
 
           <p>{registeredModule.manifest.description}</p>

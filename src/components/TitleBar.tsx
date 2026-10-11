@@ -5,6 +5,9 @@ import { APP_CONFIG } from "../config/appConfig";
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
 
+/**
+ * Top bar: wordmark and window controls.
+ */
 export function TitleBar() {
   const run = async (action: "minimize" | "maximize" | "close") => {
     if (!isTauri()) return;
@@ -17,23 +20,24 @@ export function TitleBar() {
   return (
     <header className="titlebar" data-tauri-drag-region>
       <div className="brand" data-tauri-drag-region>
-        <span className="brand-logo">
-          <BrainLogo size={46} />
-        </span>
-        <div data-tauri-drag-region>
-          <strong>{APP_CONFIG.name}</strong>
-          <span>Modular Brain-Computer Interface</span>
+        <BrainLogo size={44} />
+        <div className="brand__text" data-tauri-drag-region>
+          <strong data-tauri-drag-region>{APP_CONFIG.name}</strong>
+          <span data-tauri-drag-region>Brain-Computer Interface</span>
         </div>
       </div>
+
+      <div className="titlebar__drag" data-tauri-drag-region />
+
       <div className="window-controls">
         <button aria-label="Minimize" onClick={() => void run("minimize")}>
-          <Minus size={18} />
+          <Minus size={16} />
         </button>
         <button aria-label="Maximize" onClick={() => void run("maximize")}>
-          <Square size={15} />
+          <Square size={13} />
         </button>
         <button aria-label="Close" className="close" onClick={() => void run("close")}>
-          <X size={18} />
+          <X size={16} />
         </button>
       </div>
     </header>
