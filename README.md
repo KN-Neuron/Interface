@@ -17,6 +17,67 @@ The current application contains three production modules:
 - **TaaLON Miner** — SSVEP control using FBCCA,
 - **Neuorrun** — attention-based interaction using BrainLink Lite / ThinkGear metrics.
 
+## Run with Docker
+
+Docker runs the **browser demo** of KNeuron, including Cortex 3D, TaaLON Miner with the Python FBCCA classifier, and the bundled Neuorrun WebGL game. It uses simulated EEG and brain metrics. **Live BrainAccess/BrainLink connections and the native desktop window require the desktop setup below.**
+
+### Prerequisites
+
+- Windows or macOS: install and start Docker Desktop, configured to use Linux containers.
+- Linux: install Docker Engine and the Docker Compose plugin, and start the Docker service.
+- Download or clone this repository and open a terminal in its root directory, where `compose.yaml` is located.
+- Use a browser with WebGL support. An internet connection is needed for the initial image and dependency downloads.
+
+You do not need to install Node.js, Rust, Python, or the headset SDKs on the host computer. Check that Docker is available:
+
+```sh
+docker version
+docker compose version
+```
+
+### Start the app
+
+From the repository root, run:
+
+```sh
+docker compose up --build -d --wait
+```
+
+The first launch builds the image and can take several minutes. Once the container is healthy, open **http://localhost:8080**. The app runs in your browser; no desktop window opens.
+
+In the app's **Device** page:
+
+- Connect **Simulation EEG** to use Cortex 3D or TaaLON Miner.
+- Disconnect it and connect **Simulation Brain Metrics** to use Neuorrun.
+
+Only one device can be connected at a time. Miner classifies simulated signals, so its movements do not reflect your gaze.
+
+### Check status, view logs, and stop
+
+```sh
+# Show container status and health
+docker compose ps
+
+# Follow logs; Ctrl+C exits the log viewer without stopping the app
+docker compose logs -f
+
+# Stop and remove the container
+docker compose down
+```
+
+Run the start command again after pulling source changes to rebuild and restart. Preferences and electrode layouts are stored in each browser's local storage; clearing that storage removes them.
+
+### Troubleshooting
+
+- **Cannot connect to the Docker daemon:** start Docker Desktop or the Docker service, then retry.
+- **Permission denied for `/var/run/docker.sock` on Linux:** use an account authorized to access Docker, or run `sudo docker compose up --build -d --wait` in your terminal. Enter your password there if prompted. Use `sudo` for subsequent Docker commands too if required.
+- **Port 8080 is already in use:** create a `.env` file beside `compose.yaml` containing `KNEURON_PORT=8090`, rerun the start command, and open http://localhost:8090.
+- **Container fails to become healthy:** inspect `docker compose logs` for the build or server error.
+
+The default configuration accepts connections only from the host computer. See [CONTAINERS.md](CONTAINERS.md) for access from another device on your LAN. The demo has no authentication; do not expose it directly to the public internet.
+
+**Validation status:** the frontend build, automated tests, and local server smoke test passed. A complete Docker image build/run and cross-platform testing remain unverified because the development environment denied Docker daemon access. Compatibility with every computer or processor is not guaranteed.
+
 ---
 
 ## Current stack

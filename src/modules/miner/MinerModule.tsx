@@ -92,6 +92,14 @@ export function MinerModule(_props: KNeuronModuleProps) {
   const countdownEndsAtRef = useRef(0);
 
   const classifyingRef = useRef(false);
+  const trialGenerationRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      trialGenerationRef.current += 1;
+    },
+    [],
+  );
 
   const trialPhaseRef = useRef<MinerTrialPhase>("idle");
 
@@ -104,6 +112,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
   }, []);
 
   const cancelTrial = useCallback(() => {
+    trialGenerationRef.current += 1;
     stopCapture();
 
     classifyingRef.current = false;
@@ -150,6 +159,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
       return;
     }
 
+    const generation = trialGenerationRef.current;
     classifyingRef.current = true;
 
     setPhase("classifying");
@@ -163,12 +173,16 @@ export function MinerModule(_props: KNeuronModuleProps) {
 
       const classification = await ssvepClassifierService.classify(window, sampleRateHz, targets);
 
+      if (generation !== trialGenerationRef.current) return;
+
       applyDecision(classification);
 
       setTrialError(null);
 
       setPhase("idle");
     } catch (error) {
+      if (generation !== trialGenerationRef.current) return;
+
       const text = getErrorMessage(error);
 
       setTrialError(text);
@@ -177,7 +191,7 @@ export function MinerModule(_props: KNeuronModuleProps) {
 
       setPhase("error");
     } finally {
-      classifyingRef.current = false;
+      if (generation === trialGenerationRef.current) classifyingRef.current = false;
     }
   }, [
     applyDecision,
@@ -211,6 +225,8 @@ export function MinerModule(_props: KNeuronModuleProps) {
   }, [eegState, game.completed, setPhase]);
 
   const resetGame = useCallback(() => {
+    trialGenerationRef.current += 1;
+    classifyingRef.current = false;
     stopCapture();
 
     setGame(createInitialMinerGame());

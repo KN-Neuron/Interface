@@ -77,6 +77,12 @@ function Ensure-Node {
         throw "Node/npm was installed but is not visible yet. Open a new PowerShell window and rerun this script."
     }
 
+    $nodeVersion = [version]((node --version).TrimStart("v"))
+    if (-not (($nodeVersion.Major -eq 22 -and $nodeVersion.Minor -ge 12) -or
+              $nodeVersion.Major -eq 24 -or $nodeVersion.Major -ge 26)) {
+        throw "Install Node.js 22.12+, 24 LTS, or 26+ and rerun this script."
+    }
+
     Ok "Node $(node --version), npm $(npm --version)"
 }
 

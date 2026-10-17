@@ -1,0 +1,15 @@
+name: kneuron
+services:
+  app:
+    build: .
+    ports:
+      - "${KNEURON_BIND_ADDRESS:-127.0.0.1}:${KNEURON_PORT:-8080}:8080"
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

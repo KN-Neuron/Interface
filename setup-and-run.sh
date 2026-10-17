@@ -103,19 +103,17 @@ ensure_node() {
   local need_node=1
 
   if command_exists node && command_exists npm; then
-    local major
-    major="$(node -p 'process.versions.node.split(".")[0]')"
-    if [[ "$major" -ge 20 ]]; then
+    if node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit((major === 22 && minor >= 12) || major === 24 || major >= 26 ? 0 : 1)'; then
       need_node=0
       ok "Node $(node --version), npm $(npm --version)"
     else
-      warn "Node $(node --version) is older than 20; installing current LTS via nvm."
+      warn "Node $(node --version) is unsupported (requires 22.12+, 24, or 26+); installing current LTS via nvm."
     fi
   fi
 
   if [[ "$need_node" -eq 1 ]]; then
     if [[ "$SKIP_SYSTEM" -eq 1 ]]; then
-      die "Node.js >= 20 and npm are required."
+      die "A supported Node.js version (22.12+, 24, or 26+) and npm are required."
     fi
 
     step "Installing Node.js LTS with nvm"

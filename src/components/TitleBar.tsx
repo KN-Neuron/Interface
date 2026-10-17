@@ -23,23 +23,29 @@ export function TitleBar() {
         <BrainLogo size={44} />
         <div className="brand__text" data-tauri-drag-region>
           <strong data-tauri-drag-region>{APP_CONFIG.name}</strong>
-          <span data-tauri-drag-region>Brain-Computer Interface</span>
+          <span data-tauri-drag-region>
+            {import.meta.env.VITE_RUNTIME === "web"
+              ? "Browser demo · simulated devices"
+              : "Brain-Computer Interface"}
+          </span>
         </div>
       </div>
 
       <div className="titlebar__drag" data-tauri-drag-region />
 
-      <div className="window-controls">
-        <button aria-label="Minimize" onClick={() => void run("minimize")}>
-          <Minus size={16} />
-        </button>
-        <button aria-label="Maximize" onClick={() => void run("maximize")}>
-          <Square size={13} />
-        </button>
-        <button aria-label="Close" className="close" onClick={() => void run("close")}>
-          <X size={16} />
-        </button>
-      </div>
+      {isTauri() ? (
+        <div className="window-controls">
+          <button aria-label="Minimize" onClick={() => void run("minimize")}>
+            <Minus size={16} />
+          </button>
+          <button aria-label="Maximize" onClick={() => void run("maximize")}>
+            <Square size={13} />
+          </button>
+          <button aria-label="Close" className="close" onClick={() => void run("close")}>
+            <X size={16} />
+          </button>
+        </div>
+      ) : null}
     </header>
   );
 }

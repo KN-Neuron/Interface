@@ -1,5 +1,7 @@
 import { TAALON_DEFAULT_TARGETS, validateTaalonFrequencies } from "./config";
 
+import { HttpSsvepClassifierBridge } from "./HttpSsvepClassifierBridge";
+
 import { SsvepClassifierBridge } from "./SsvepClassifierBridge";
 
 import type { SsvepClassification, SsvepDirection, SsvepTarget } from "./models";
@@ -15,7 +17,12 @@ function directionForWinner(winnerHz: number, targets: readonly SsvepTarget[]): 
 }
 
 export class SsvepClassifierService {
-  constructor(private readonly bridge = new SsvepClassifierBridge()) {}
+  constructor(
+    private readonly bridge: Pick<SsvepClassifierBridge, "classify" | "stop"> = import.meta.env
+      .VITE_RUNTIME === "web"
+      ? new HttpSsvepClassifierBridge()
+      : new SsvepClassifierBridge(),
+  ) {}
 
   async classify(
     eeg: readonly (readonly number[])[],

@@ -1,0 +1,17 @@
+**
+!package.json
+!package-lock.json
+!tsconfig*.json
+!vite.config.ts
+!index.html
+!src/
+!src/**
+!public/
+!public/**
+!container/
+!container/**
+!ssvep-sidecar/
+!ssvep-sidecar/bridge.py
+!ssvep-sidecar/fbcca.py
+**/__pycache__
+**/*.pyc

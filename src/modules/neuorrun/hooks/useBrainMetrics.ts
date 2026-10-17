@@ -1,3 +1,5 @@
+import { deviceManager, type DeviceManagerSnapshot } from "../../../core/devices/deviceManager";
+
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -36,42 +38,51 @@ export function useBrainMetrics(): NeuorrunBrainSnapshot {
     let cancelled = false;
     let handle: BrainMetricsHandle | null = null;
 
-    async function start(): Promise<void> {
-      // Keep state transitions out of the synchronous effect body.
-      await Promise.resolve();
+    let boundDeviceId: string | null = null;
+
+    function syncDevice(snapshot: DeviceManagerSnapshot): void {
+      if (cancelled) return;
+      const connected = snapshot.activeStatus?.state === "connected";
+      if (connected && handle && boundDeviceId === snapshot.activeDeviceId) return;
+
+      handle?.release();
+      handle = null;
+      boundDeviceId = null;
+      setMetrics(null);
+
+      if (!connected) {
+        setState("unavailable");
+        setMessage(
+          snapshot.activeStatus?.error ??
+            snapshot.activeStatus?.message ??
+            "Connect a brain-metrics device to continue.",
+        );
+        return;
+      }
 
       try {
-        const acquired = brainMetricsService.acquire((snapshot) => {
-          if (cancelled) {
-            return;
-          }
-
+        handle = brainMetricsService.acquire((snapshot) => {
+          if (cancelled) return;
           setMetrics(snapshot);
           setState("live");
           setMessage(null);
         });
-
-        if (cancelled) {
-          acquired.release();
-          return;
-        }
-
-        handle = acquired;
+        boundDeviceId = handle.deviceId;
         setState("live");
+        setMessage(null);
       } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
         setState("unavailable");
         setMessage(errorMessage(error));
       }
     }
 
-    void start();
+    const unsubscribe = deviceManager.subscribe(syncDevice);
+    // Defer the initial state update out of the synchronous effect body.
+    void Promise.resolve().then(() => syncDevice(deviceManager.getSnapshot()));
 
     return () => {
       cancelled = true;
+      unsubscribe();
       handle?.release();
       handle = null;
     };

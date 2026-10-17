@@ -1,3 +1,6 @@
+import { SimulationEEGAdapter } from "./adapters/simulation/SimulationEEGAdapter";
+import { SimulationBrainMetricsAdapter } from "./adapters/simulation/SimulationBrainMetricsAdapter";
+
 import { BrainAccessEEGAdapter } from "./adapters/brainaccess/BrainAccessEEGAdapter";
 
 import { BrainLinkAdapter } from "./adapters/brainlink/BrainLinkAdapter";
@@ -9,10 +12,13 @@ import { deviceRegistry } from "./deviceRegistry";
 /**
  * Production hardware bundled with KNeuron.
  *
- * Simulation devices are registered only in development builds so the UI
- * and modules can be worked on without physical hardware.
+ * Browser container builds expose simulated devices instead of native hardware.
  */
 function createBuiltInDevices(): DeviceAdapter[] {
+  if (import.meta.env.VITE_RUNTIME === "web") {
+    return [new SimulationEEGAdapter(), new SimulationBrainMetricsAdapter()];
+  }
+
   const devices: DeviceAdapter[] = [new BrainAccessEEGAdapter(), new BrainLinkAdapter()];
 
   return devices;

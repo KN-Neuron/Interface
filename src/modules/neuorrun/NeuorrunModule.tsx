@@ -39,11 +39,11 @@ declare global {
   }
 }
 
-function metricsPayload(metrics: Readonly<BrainMetricsSnapshot>): string {
+function metricsPayload(metrics: Readonly<BrainMetricsSnapshot> | null): string {
   return JSON.stringify({
-    attention: metrics.attention ?? 0,
-    meditation: metrics.meditation ?? 0,
-    poorSignalLevel: metrics.poorSignalLevel ?? 200,
+    attention: metrics?.attention ?? 0,
+    meditation: metrics?.meditation ?? 0,
+    poorSignalLevel: metrics?.poorSignalLevel ?? 200,
   });
 }
 
@@ -181,7 +181,7 @@ export function NeuorrunModule({ onRequestClose }: KNeuronModuleProps): JSX.Elem
     const instance = unityRef.current;
     const metrics = brain.metrics;
 
-    if (!instance || !metrics) {
+    if (loadState !== "ready" || !instance) {
       return;
     }
 
@@ -191,7 +191,7 @@ export function NeuorrunModule({ onRequestClose }: KNeuronModuleProps): JSX.Elem
       // Unity may be between scenes for a frame. The next metrics event will
       // retry automatically.
     }
-  }, [brain.metrics]);
+  }, [brain.metrics, loadState]);
 
   return (
     <section className="neuorrun-module">
