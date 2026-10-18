@@ -1,3 +1,7 @@
+import {
+  BrowserBrainAccessBridge,
+  BrowserBrainLinkBridge,
+} from "./adapters/browser/HardwareBridge";
 import { SimulationEEGAdapter } from "./adapters/simulation/SimulationEEGAdapter";
 import { SimulationBrainMetricsAdapter } from "./adapters/simulation/SimulationBrainMetricsAdapter";
 
@@ -12,11 +16,16 @@ import { deviceRegistry } from "./deviceRegistry";
 /**
  * Production hardware bundled with KNeuron.
  *
- * Browser container builds expose simulated devices instead of native hardware.
+ * Browser builds connect to native helpers through an authenticated loopback bridge.
  */
 function createBuiltInDevices(): DeviceAdapter[] {
   if (import.meta.env.VITE_RUNTIME === "web") {
-    return [new SimulationEEGAdapter(), new SimulationBrainMetricsAdapter()];
+    return [
+      new BrainAccessEEGAdapter(new BrowserBrainAccessBridge()),
+      new BrainLinkAdapter(new BrowserBrainLinkBridge()),
+      new SimulationEEGAdapter(),
+      new SimulationBrainMetricsAdapter(),
+    ];
   }
 
   const devices: DeviceAdapter[] = [new BrainAccessEEGAdapter(), new BrainLinkAdapter()];

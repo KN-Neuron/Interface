@@ -1,0 +1,16 @@
+name: kneuron
+services:
+  app:
+    image: ${KNEURON_IMAGE:-kneuron-app:latest}
+    pull_policy: never
+    ports:
+      - "127.0.0.1:8080:8080"
+    init: true
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

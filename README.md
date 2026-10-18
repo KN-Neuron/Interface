@@ -17,9 +17,13 @@ The current application contains three production modules:
 - **TaaLON Miner** — SSVEP control using FBCCA,
 - **Neuorrun** — attention-based interaction using BrainLink Lite / ThinkGear metrics.
 
+## Managed container app (Windows and Linux)
+
+The app stays in one shared Docker image. A small native launcher starts Docker plus the local Bluetooth bridge, opens an app window, pairs automatically, and stops its bridge when the session ends. No bridge console or login service is required. Download the Windows/Linux launcher from Device or build it using [the managed launcher instructions](hardware-bridge/README.md). For a source checkout, run `Start-KNeuron.cmd` (Windows) or `bash start-container.sh` (Linux) after building its host package. Docker must already be running. Linux live-headset operation still requires physical testing.
+
 ## Run with Docker
 
-Docker runs the **browser demo** of KNeuron, including Cortex 3D, TaaLON Miner with the Python FBCCA classifier, and the bundled Neuorrun WebGL game. It uses simulated EEG and brain metrics. **Live BrainAccess/BrainLink connections and the native desktop window require the desktop setup below.**
+Docker runs the **browser demo** of KNeuron, including Cortex 3D, TaaLON Miner with the Python FBCCA classifier, and the bundled Neuorrun WebGL game. It includes simulated EEG and brain metrics. On Windows, Chrome can also use live BrainAccess and BrainLink through the local hardware bridge downloaded from Device. See [Bluetooth setup](hardware-bridge/README.md). The native desktop edition uses the desktop setup below.
 
 ### Prerequisites
 
@@ -50,7 +54,7 @@ In the app's **Device** page:
 - Connect **Simulation EEG** to use Cortex 3D or TaaLON Miner.
 - Disconnect it and connect **Simulation Brain Metrics** to use Neuorrun.
 
-Only one device can be connected at a time. Miner classifies simulated signals, so its movements do not reflect your gaze.
+For real headsets on Windows, download and run the hardware bridge from Device, pair it using the displayed code, then connect BrainAccess MAXI 009 or BrainLink Lite. Keep the bridge window open. Only one device can be connected at a time. Simulation signals do not reflect your gaze.
 
 ### Check status, view logs, and stop
 
@@ -2922,3 +2926,62 @@ See:
 
 Third-party software, assets, vendor SDKs and runtime components
 may be subject to separate license terms.
+
+## TALON module
+
+TALON runs inside Interface as a Unity WebGL canvas, like Neuorrun. Both levels
+(free flight and rooftop ascent) ship with the app. No separate TALON player,
+Python installation, Unity Editor, WSL, or Docker is needed on the Windows user's
+machine. The Windows installer includes the three native EEG/classifier helpers.
+The Microsoft WebView2 runtime is required; the installer handles its setup.
+
+Select **TALON** in the launcher. Free flight supports keyboard/pad and BCI test
+keys. Rooftop training supports a device-free click test and real EEG via
+Interface's existing device connection, six-channel stream, and FBCCA classifier.
+Connect BrainAccess in **Device**, then choose **Użyj EEG z Interface** in TALON.
+The game does not open a second Bluetooth connection. Disconnecting/changing the
+device, losing focus, leaving the module, cancelling a trial, or changing levels
+invalidates pending EEG decisions. Exiting unloads Unity and releases the module's
+EEG subscription while Interface continues to own the device.
+
+The Docker/browser edition includes both games and uses **Simulation EEG** for
+TALON's rooftop trials. Synthetic decisions do not measure gaze accuracy. Use
+**Simulation Brain Metrics** for Neuorrun. Stimulus timing and physical-controller
+behavior still require validation on the target hardware/display.
+
+The embedded version uses Interface EEG for rooftop training. The native game's
+external Python stimulus launcher and UDP listener are not used in WebGL; free
+flight retains manual and BCI test-key control. Use the system screenshot tool
+for captures in the embedded version.
+
+### Build a standalone Windows installer
+
+From a Windows working copy, run:
+
+```powershell
+.\build-standalone.ps1
+```
+
+This verifies the bundled Unity assets, prepares the existing Node/Rust/Python
+build dependencies and EEG sidecars, and creates the NSIS installer under
+`src-tauri/target/release/bundle/nsis/` (or `$env:CARGO_TARGET_DIR/release/bundle/nsis/`).
+Build dependencies are only needed by developers, not by users installing the app.
+Use `-SkipSetup` when dependencies and sidecars have already been prepared.
+
+### Update TALON's bundled game
+
+Build from the TALON repository using `unity/tools/Unity.ps1 -Task WebGL`, then
+copy its uncompressed output into this repository:
+
+```powershell
+python .\unity-patch\prepare_webgl_build.py `
+  "$env:USERPROFILE\TALON-Unity\Builds\WebGL" `
+  .\public\talon --product-name TALON
+```
+
+Keep `public/talon/manifest.json` and `public/talon/Build/` together, as with
+Neuorrun. Docker builds include these files automatically:
+
+```sh
+docker compose up --build -d
+```

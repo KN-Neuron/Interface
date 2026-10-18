@@ -25,7 +25,7 @@ export function TitleBar() {
           <strong data-tauri-drag-region>{APP_CONFIG.name}</strong>
           <span data-tauri-drag-region>
             {import.meta.env.VITE_RUNTIME === "web"
-              ? "Browser demo · simulated devices"
+              ? "Browser · Bluetooth bridge available"
               : "Brain-Computer Interface"}
           </span>
         </div>

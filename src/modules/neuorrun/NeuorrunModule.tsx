@@ -8,36 +8,11 @@ import { useBrainMetrics } from "./hooks/useBrainMetrics";
 
 import "./styles/neuorrun.css";
 
-interface UnityBuildManifest {
-  ready: boolean;
-  loader?: string;
-  data?: string;
-  framework?: string;
-  code?: string;
-  symbols?: string | null;
-  streamingAssets?: string | null;
-  companyName?: string;
-  productName?: string;
-  productVersion?: string;
-}
-
-interface UnityInstance {
-  SendMessage(objectName: string, methodName: string, value?: string | number): void;
-
-  Quit(): Promise<void>;
-}
-
-type CreateUnityInstance = (
-  canvas: HTMLCanvasElement,
-  config: Record<string, unknown>,
-  onProgress?: (progress: number) => void,
-) => Promise<UnityInstance>;
-
-declare global {
-  interface Window {
-    createUnityInstance?: CreateUnityInstance;
-  }
-}
+import {
+  loadUnityRuntime,
+  UnityBuildMissingError,
+  type UnityInstance,
+} from "../../lib/unityRuntime";
 
 function metricsPayload(metrics: Readonly<BrainMetricsSnapshot> | null): string {
   return JSON.stringify({
@@ -71,109 +46,29 @@ export function NeuorrunModule({ onRequestClose }: KNeuronModuleProps): JSX.Elem
   }, [brain.metrics]);
 
   useEffect(() => {
-    let cancelled = false;
-    let loaderScript: HTMLScriptElement | null = null;
-
-    async function startUnity(): Promise<void> {
-      try {
-        const response = await fetch("/neuorrun/manifest.json", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error(`Neuorrun manifest could not be loaded (${response.status}).`);
-        }
-
-        const manifest = (await response.json()) as UnityBuildManifest;
-
-        if (!manifest.ready) {
-          if (!cancelled) {
-            setLoadState("missing");
-          }
-          return;
-        }
-
-        if (!manifest.loader || !manifest.data || !manifest.framework || !manifest.code) {
-          throw new Error("Neuorrun Unity manifest is incomplete.");
-        }
-
-        const canvas = canvasRef.current;
-        if (!canvas) {
-          throw new Error("Neuorrun canvas is unavailable.");
-        }
-
-        if (!window.createUnityInstance) {
-          await new Promise<void>((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = `/neuorrun/${manifest.loader}`;
-            script.async = true;
-            script.dataset.kneuronUnityLoader = "neuorrun";
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error("Neuorrun Unity loader failed to load."));
-            document.body.appendChild(script);
-            loaderScript = script;
-          });
-        }
-
-        if (!window.createUnityInstance) {
-          throw new Error("Unity createUnityInstance API is unavailable.");
-        }
-
-        const config: Record<string, unknown> = {
-          dataUrl: `/neuorrun/${manifest.data}`,
-          frameworkUrl: `/neuorrun/${manifest.framework}`,
-          codeUrl: `/neuorrun/${manifest.code}`,
-          streamingAssetsUrl: manifest.streamingAssets
-            ? `/neuorrun/${manifest.streamingAssets}`
-            : "/neuorrun/StreamingAssets",
-          companyName: manifest.companyName ?? "KNeuron",
-          productName: manifest.productName ?? "Neuorrun",
-          productVersion: manifest.productVersion ?? "1.0",
-          matchWebGLToCanvasSize: true,
-          devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
-        };
-
-        if (manifest.symbols) {
-          config.symbolsUrl = `/neuorrun/${manifest.symbols}`;
-        }
-
-        const instance = await window.createUnityInstance(canvas, config, (value) => {
-          if (!cancelled) {
-            setProgress(value);
-          }
-        });
-
-        if (cancelled) {
+    const controller = new AbortController();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    void loadUnityRuntime(canvas, "/neuorrun", controller.signal, setProgress)
+      .then(async (instance) => {
+        if (controller.signal.aborted) {
           await instance.Quit();
           return;
         }
-
         unityRef.current = instance;
         setProgress(1);
         setLoadState("ready");
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        setLoadState("error");
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setLoadState(error instanceof UnityBuildMissingError ? "missing" : "error");
         setLoadError(error instanceof Error ? error.message : String(error));
-      }
-    }
-
-    void startUnity();
-
+      });
     return () => {
-      cancelled = true;
-
+      controller.abort();
       const instance = unityRef.current;
       unityRef.current = null;
-
-      if (instance) {
-        void instance.Quit();
-      }
-
-      loaderScript?.remove();
+      if (instance) void instance.Quit().catch(() => {});
     };
   }, []);
 

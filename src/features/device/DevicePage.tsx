@@ -1,3 +1,4 @@
+import { HardwareBridgeSettings } from "./HardwareBridgeSettings";
 import { DeviceCard } from "./DeviceCard";
 
 import { useDevice } from "./useDevice";
@@ -18,6 +19,10 @@ export function DevicePage() {
 
         <p>Manage devices available to KNeuron.</p>
       </header>
+
+      {import.meta.env.VITE_RUNTIME === "web" && (
+        <HardwareBridgeSettings busy={snapshot.busy || !!snapshot.activeDeviceId} />
+      )}
 
       <section className="device-section">
         <div className="device-section__heading">

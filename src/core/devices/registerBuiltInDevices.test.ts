@@ -7,11 +7,13 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it("registers only simulated devices in browser builds", () => {
+it("registers physical bridge adapters and simulations in browser builds", () => {
   vi.stubEnv("VITE_RUNTIME", "web");
   registerBuiltInDevices();
   registerBuiltInDevices();
   expect(deviceRegistry.getAll().map((adapter) => adapter.info.id)).toEqual([
+    "brainaccess-maxi-009",
+    "brainlink-lite",
     "simulation-eeg",
     "simulation-brain-metrics",
   ]);

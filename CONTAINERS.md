@@ -8,13 +8,13 @@ docker compose up --build -d
 
 Open **http://localhost:8080**. The first run downloads images and builds the app; later runs reuse cached layers. Node, Rust, Python, and vendor SDKs do not need to be installed on the host. Windows, macOS, and Linux hosts with Docker can run this browser edition. Images build for the host architecture; x86-64 and ARM64 builds require the corresponding base images and scientific Python wheels.
 
-In **Device**, connect **Simulation EEG** for Cortex 3D or TaaLON Miner, or **Simulation Brain Metrics** for Neuorrun. Only one device can be connected at a time. Miner uses the real Python FBCCA classifier with simulated input; its decisions do not represent your gaze. Neuorrun's bundled Unity WebGL assets are included. A browser and GPU with WebGL support are required; mobile browser compatibility depends on Unity and available memory.
+In **Device**, connect **Simulation EEG** for Cortex 3D or TaaLON Miner, or **Simulation Brain Metrics** for Neuorrun. Only one device can be connected at a time. Miner uses the real Python FBCCA classifier with simulated input; its decisions do not represent your gaze. Neuorrun and TALON's bundled Unity WebGL assets are included. TALON supports free flight, device-free rooftop click testing, and rooftop trials using Simulation EEG through the container classifier. A browser and GPU with WebGL support are required; mobile browser compatibility depends on Unity and available memory.
 
 ## What is included
 
 The container serves the production React build and an HTTP wrapper around the existing Python classifier. It runs as an unprivileged user, has a health check, and uses a read-only filesystem with temporary storage. The desktop/Tauri build keeps its native sidecars and hardware adapters.
 
-The browser edition uses simulated devices. It cannot connect directly to BrainAccess or BrainLink, open a native desktop window, or access Bluetooth/serial devices on the viewing device. Native hardware use still requires the desktop setup documented in README.md. Docker containers also cannot be installed directly on most phones or tablets: run Docker on a supported computer/server and access it through a browser.
+The browser edition includes simulations and supports BrainAccess/BrainLink through the Windows loopback hardware bridge described below. It uses native helpers on the viewing computer for Bluetooth/serial access. It does not open a native desktop window. Docker containers also cannot be installed directly on most phones or tablets: run Docker on a supported computer/server and access it through a browser.
 
 ## Commands
 
@@ -57,3 +57,13 @@ Container API tests can run without Docker using Python 3.12 and the dependencie
 ```sh
 PYTHONPATH=ssvep-sidecar:container python -m unittest discover -s container -v
 ```
+
+## Managed app on Windows and Linux
+
+Use the same Docker image with an OS-native launcher for Bluetooth. The launcher starts Compose, opens a dedicated Chrome/Chromium/Edge app window, pairs the host bridge automatically, and stops that bridge/headset helpers when the window exits. A heartbeat timeout covers lost browser sessions. It stops the app container only when it started that container itself; an already-running container is preserved.
+
+Download the Windows or Linux x86-64 launcher package from Device, extract it, and run `kneuron-launcher.exe` or `./kneuron-launcher`. Docker must already be running and the shared `kneuron-app:latest` image must be built/loaded. Windows also supports Docker Engine in the default WSL distribution when the Windows Docker CLI is absent. No always-running service or manual pairing code is needed in managed mode. OS Bluetooth pairing and browser permissions may still be required.
+
+From a source checkout, build the host package with `hardware-bridge/build.ps1` (Windows) or `bash hardware-bridge/build-linux.sh` (Linux), then run `Start-KNeuron.cmd` or `bash start-container.sh`. The source launcher also builds the Docker image. Packaged launchers use the prebuilt image. Use default ports 8080/18765. See [hardware-bridge/README.md](hardware-bridge/README.md) for dependencies, image distribution, cleanup behavior, and manual browser mode.
+
+Linux packages target Ubuntu x86-64. Physical headset streaming remains a separate validation step on each OS; package/protocol tests do not establish Bluetooth hardware compatibility.

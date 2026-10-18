@@ -84,3 +84,16 @@ desktop.ini
 # ---------------------------------------------------------
 
 .cache/
+
+# Local standalone installers and portable packages
+artifacts/
+
+# Browser hardware bridge build output
+hardware-bridge/build/
+hardware-bridge/dist/
+hardware-bridge/*.spec
+public/hardware-bridge/*.zip
+
+hardware-bridge/.venv/
+hardware-bridge/__pycache__/
+public/hardware-bridge/*.tar.gz

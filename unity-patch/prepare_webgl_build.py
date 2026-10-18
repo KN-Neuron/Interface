@@ -15,10 +15,11 @@ def one(files: list[Path], label: str) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Copy a Unity WebGL Neuorrun build into KNeuron/public/neuorrun."
+        description="Copy an uncompressed Unity WebGL build into a KNeuron module directory."
     )
     parser.add_argument("unity_build", type=Path)
     parser.add_argument("kneuron_public_neuorrun", type=Path)
+    parser.add_argument("--product-name", default="Neuorrun")
     args = parser.parse_args()
 
     source_root = args.unity_build.resolve()
@@ -59,7 +60,7 @@ def main() -> int:
         "symbols": f"Build/{symbols.name}" if symbols else None,
         "streamingAssets": "StreamingAssets" if streaming_source.is_dir() else None,
         "companyName": "KNeuron",
-        "productName": "Neuorrun",
+        "productName": args.product_name,
         "productVersion": "1.0",
     }
 
@@ -68,7 +69,7 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    print(f"Neuorrun build installed into: {target_root}")
+    print(f"{args.product_name} build installed into: {target_root}")
     print(f"Loader: {loader.name}")
     print(f"Data: {data.name}")
     print(f"Framework: {framework.name}")

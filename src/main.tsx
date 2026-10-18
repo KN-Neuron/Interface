@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 
 import App from "./App";
+import { initializeManagedHardwareSession } from "./core/devices/adapters/browser/HardwareBridge";
 
 import { registerBuiltInDevices } from "./core/devices/registerBuiltInDevices";
 
@@ -26,8 +27,12 @@ registerBuiltInDevices();
  */
 registerBuiltInModules();
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+void (
+  import.meta.env.VITE_RUNTIME === "web" ? initializeManagedHardwareSession() : Promise.resolve()
+).then(() => {
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+});
