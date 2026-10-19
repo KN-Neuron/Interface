@@ -263,12 +263,17 @@ Build-Sidecar `
     -Name "BrainLink bridge" `
     -Directory (Join-Path $root "brainlink-sidecar")
 
+Build-Sidecar `
+    -Name "neurostate bridge" `
+    -Directory (Join-Path $root "neurostate-sidecar")
+
 Step "Verifying sidecars"
 
 $expectedBinaries = @(
     "brainaccess-bridge-x86_64-pc-windows-msvc.exe",
     "ssvep-classifier-x86_64-pc-windows-msvc.exe",
-    "brainlink-bridge-x86_64-pc-windows-msvc.exe"
+    "brainlink-bridge-x86_64-pc-windows-msvc.exe",
+    "neurostate-bridge-x86_64-pc-windows-msvc.exe"
 )
 
 foreach ($binaryName in $expectedBinaries) {

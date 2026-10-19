@@ -1,0 +1,7 @@
+# neurostate settings for the BrainAccess MIDI (16 dry electrodes).
+# Mirrors config/brainaccess-midi.yaml in the NeuroState repository.
+input:
+  montage: brainaccess-midi
+bad_channels:
+  # Dry electrodes pick up much more mains hum than gel ones.
+  mains_ratio: 10

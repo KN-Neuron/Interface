@@ -4,142 +4,52 @@ import type { EEGChannelInfo, EEGDeviceInfo, EEGStreamInfo } from "../../models/
 
 import type { DeviceStatusListener, DeviceUnsubscribe } from "../../contracts/DeviceAdapter";
 
-import type { EEGDeviceAdapter } from "../../contracts/EEGDeviceAdapter";
+import type { LslStreamDescriptor, LslStreamSource } from "../../contracts/LslStreamSource";
 
 import type { EEGSampleBatchListener } from "../../../eeg/models";
 
 import { BrainAccessBridge, type BrainAccessBridgeLike } from "./BrainAccessBridge";
 
-const DEVICE_NAME = "BA MAXI 009";
+import { BRAINACCESS_MAXI_PROFILE, type BrainAccessProfile } from "./brainAccessProfiles";
 
-/**
- * BA MAXI 009 cap layout.
- *
- * Physical cap:
- *
- * Fp1 -> REF
- * Fp2 -> BIAS
- *
- * These two positions are not part of the 32 streamed EEG measurement channels.
- *
- * Therefore the 32 EEG channels are:
- *
- *  0 -> AF3
- *  1 -> AFz
- *  2 -> AF4
- *  3 -> F7
- *  4 -> F3
- *  5 -> Fz
- *  6 -> F4
- *  7 -> F8
- *  8 -> FC5
- *  9 -> FC1
- * 10 -> FC2
- * 11 -> FC6
- * 12 -> T7
- * 13 -> C3
- * 14 -> Cz
- * 15 -> C4
- * 16 -> T8
- * 17 -> CP5
- * 18 -> CP1
- * 19 -> CP2
- * 20 -> CP6
- * 21 -> P7
- * 22 -> P3
- * 23 -> Pz
- * 24 -> P4
- * 25 -> P8
- * 26 -> PO3
- * 27 -> POz
- * 28 -> PO4
- * 29 -> O1
- * 30 -> Oz
- * 31 -> O2
- *
- * sourceIndex is zero-based and corresponds to the order of EEG samples
- * delivered by the BrainAccess bridge.
- */
-const BRAINACCESS_MAXI_EEG_LABELS = [
-  "AF3",
-  "AFz",
-  "AF4",
-  "F7",
-  "F3",
-  "Fz",
-  "F4",
-  "F8",
-  "FC5",
-  "FC1",
-  "FC2",
-  "FC6",
-  "T7",
-  "C3",
-  "Cz",
-  "C4",
-  "T8",
-  "CP5",
-  "CP1",
-  "CP2",
-  "CP6",
-  "P7",
-  "P3",
-  "Pz",
-  "P4",
-  "P8",
-  "PO3",
-  "POz",
-  "PO4",
-  "O1",
-  "Oz",
-  "O2",
-] as const;
-
-function buildChannels(channelCount: number): EEGChannelInfo[] {
+function buildChannels(labels: readonly string[], channelCount: number): EEGChannelInfo[] {
   return Array.from({ length: channelCount }, (_, sourceIndex) => {
-    const label =
-      BRAINACCESS_MAXI_EEG_LABELS[sourceIndex] ?? `Ch${String(sourceIndex + 1).padStart(2, "0")}`;
+    const label = labels[sourceIndex] ?? `Ch${String(sourceIndex + 1).padStart(2, "0")}`;
 
     return {
       index: sourceIndex,
       sourceIndex,
       label,
       type: "eeg",
-      unit: "unknown",
+      // The BrainAccess SDK delivers electrode measurements in microvolts.
+      unit: "uV",
     };
   });
 }
 
-const DEVICE_INFO: EEGDeviceInfo = {
-  id: "brainaccess-maxi-009",
-  name: "BrainAccess MAXI 009",
-  kind: "eeg",
-  transport: "bluetooth",
-  manufacturer: "BrainAccess",
-  model: "MAXI 009",
-  thumbnail: "/devices/brainaccess-maxi.png",
-};
-
 /**
- * KNeuron adapter for BA MAXI 009.
+ * KNeuron adapter for one BrainAccess headset model, described by a profile.
  *
  * BrainAccess-specific behaviour stays inside this adapter/bridge layer.
  *
  * Cortex, SSVEP, Miner and other modules access EEG only through
  * EEGStreamService and do not know which physical headset is connected.
+ * While streaming, the EEG is also republished on LSL for neurostate.
  */
-export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
-  readonly info: Readonly<EEGDeviceInfo> = DEVICE_INFO;
+export class BrainAccessEEGAdapter implements LslStreamSource {
+  readonly info: Readonly<EEGDeviceInfo>;
 
-  private status: DeviceStatus = {
-    state: "disconnected",
-    message: "BrainAccess MAXI 009 is disconnected.",
-    updatedAt: Date.now(),
-  };
+  private status: DeviceStatus;
 
   private streamInfo: Readonly<EEGStreamInfo> | null = null;
 
+  private deviceName: string | null = null;
+
   private streaming = false;
+
+  private lslStream: Readonly<LslStreamDescriptor> | null = null;
+
+  private lslError: string | null = null;
 
   private readonly statusListeners = new Set<DeviceStatusListener>();
 
@@ -149,7 +59,18 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
 
   private readonly bridgeDisconnectUnsubscribe: () => void;
 
-  constructor(private readonly bridge: BrainAccessBridgeLike = new BrainAccessBridge()) {
+  constructor(
+    private readonly bridge: BrainAccessBridgeLike = new BrainAccessBridge(),
+    private readonly profile: BrainAccessProfile = BRAINACCESS_MAXI_PROFILE,
+  ) {
+    this.info = profile.info;
+
+    this.status = {
+      state: "disconnected",
+      message: `${this.info.name} is disconnected.`,
+      updatedAt: Date.now(),
+    };
+
     this.bridgeSampleUnsubscribe = this.bridge.subscribeSamples((batch) => {
       if (!this.streaming) {
         return;
@@ -162,6 +83,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
 
     this.bridgeDisconnectUnsubscribe = this.bridge.subscribeDisconnected((reason) => {
       this.streaming = false;
+      this.lslStream = null;
 
       this.setStatus({
         state: "error",
@@ -185,7 +107,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
 
     this.setStatus({
       state: "connecting",
-      message: "Scanning for BrainAccess MAXI 009...",
+      message: `Scanning for ${this.info.name}...`,
       updatedAt: Date.now(),
     });
 
@@ -194,12 +116,14 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
 
       const devices = await this.bridge.scan();
 
-      const target = devices.find((device) => device.name === DEVICE_NAME);
+      const target = devices.find((device) => this.profile.matches(device.name));
 
       if (!target) {
         const found = devices.length > 0 ? devices.map((device) => device.name).join(", ") : "none";
 
-        throw new Error(`BrainAccess device "${DEVICE_NAME}" was not found. Discovered: ${found}.`);
+        throw new Error(
+          `BrainAccess device "${this.profile.target}" was not found. Discovered: ${found}.`,
+        );
       }
 
       this.setStatus({
@@ -208,16 +132,22 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
         updatedAt: Date.now(),
       });
 
-      const connection = await this.bridge.connect(target.name);
+      const connection = await this.bridge.connect(target.name, {
+        biasElectrodes: this.profile.biasElectrodes,
+      });
+
+      const labels = this.profile.channelLabels;
+
+      this.deviceName = target.name;
 
       this.streamInfo = {
         sampleRateHz: connection.sampleRateHz,
-        channels: buildChannels(connection.channelCount),
+        channels: buildChannels(labels, connection.channelCount),
       };
 
       const mappingMessage =
-        connection.channelCount === BRAINACCESS_MAXI_EEG_LABELS.length
-          ? "Configured 32-channel cap mapping is active."
+        connection.channelCount === labels.length
+          ? `Configured ${labels.length}-channel cap mapping is active.`
           : `Device reports ${connection.channelCount} EEG channels; unmapped channels will use ChXX labels.`;
 
       this.setStatus({
@@ -231,6 +161,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
       });
     } catch (error) {
       this.streamInfo = null;
+      this.deviceName = null;
       this.streaming = false;
 
       try {
@@ -259,7 +190,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
 
     this.setStatus({
       state: "disconnecting",
-      message: "Disconnecting BrainAccess MAXI 009...",
+      message: `Disconnecting ${this.info.name}...`,
       updatedAt: Date.now(),
     });
 
@@ -272,11 +203,12 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
       await this.bridge.stop();
 
       this.streamInfo = null;
+      this.deviceName = null;
       this.streaming = false;
 
       this.setStatus({
         state: "disconnected",
-        message: "BrainAccess MAXI 009 is disconnected.",
+        message: `${this.info.name} is disconnected.`,
         updatedAt: Date.now(),
       });
     } catch (error) {
@@ -311,19 +243,40 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
     return this.streaming;
   }
 
+  getLslStream(): Readonly<LslStreamDescriptor> | null {
+    return this.lslStream ? { ...this.lslStream } : null;
+  }
+
+  getLslError(): string | null {
+    return this.lslError;
+  }
+
   async startStream(): Promise<void> {
     if (this.streaming) {
       return;
     }
 
-    if (this.status.state !== "connected") {
-      throw new Error("BrainAccess MAXI 009 must be connected before streaming can start.");
+    if (this.status.state !== "connected" || !this.streamInfo || !this.deviceName) {
+      throw new Error(`${this.info.name} must be connected before streaming can start.`);
     }
+
+    const name = `KNeuron ${this.deviceName}`;
 
     this.streaming = true;
 
     try {
-      await this.bridge.startStream();
+      const result = await this.bridge.startStream({
+        lsl: {
+          name,
+          sourceId: `kneuron-${this.deviceName}`,
+          channelLabels: this.streamInfo.channels.map((channel) => channel.label),
+        },
+      });
+
+      this.lslStream = result.lsl
+        ? { name, neurostateProfile: this.profile.neurostateProfile }
+        : null;
+      this.lslError = result.lsl ? null : (result.lslError ?? "LSL republishing is unavailable.");
     } catch (error) {
       this.streaming = false;
       throw error;
@@ -339,6 +292,7 @@ export class BrainAccessEEGAdapter implements EEGDeviceAdapter {
       await this.bridge.stopStream();
     } finally {
       this.streaming = false;
+      this.lslStream = null;
     }
   }
 

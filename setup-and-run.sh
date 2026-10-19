@@ -20,6 +20,10 @@ Usage:
 Options:
   --no-launch    Prepare everything but do not start KNeuron.
   --skip-system  Do not install OS-level packages; only verify/use what exists.
+
+Environment:
+  NEUROSTATE_SRC  Local NeuroState checkout to build the neurostate sidecar from,
+                  instead of the commit pinned in neurostate-sidecar/neurostate.txt.
 EOF
       exit 0
       ;;
@@ -173,9 +177,10 @@ ensure_python() {
 
   python3 - <<'PY'
 import sys
-if sys.version_info < (3, 10):
+# neurostate, which the neurostate sidecar bundles, needs Python 3.12.
+if sys.version_info < (3, 12):
     raise SystemExit(
-        f"Python >= 3.10 is required; found {sys.version.split()[0]}"
+        f"Python >= 3.12 is required; found {sys.version.split()[0]}"
     )
 print(f"[OK] Python {sys.version.split()[0]}")
 PY
@@ -200,6 +205,17 @@ build_sidecar() {
   "$venv/bin/python" -m pip install --upgrade pip setuptools wheel
   "$venv/bin/python" -m pip install -r "$ROOT/$dir/requirements.txt"
   "$venv/bin/python" -m pip install --upgrade pyinstaller
+
+  # The neurostate sidecar bundles the NeuroState package.
+  if [[ -f "$ROOT/$dir/neurostate.txt" ]]; then
+    if [[ -n "${NEUROSTATE_SRC:-}" ]]; then
+      [[ -d "$NEUROSTATE_SRC" ]] || die "NEUROSTATE_SRC is not a directory: $NEUROSTATE_SRC"
+      ok "Using neurostate from $NEUROSTATE_SRC"
+      "$venv/bin/python" -m pip install --upgrade "$NEUROSTATE_SRC"
+    else
+      "$venv/bin/python" -m pip install -r "$ROOT/$dir/neurostate.txt"
+    fi
+  fi
 
   (
     cd "$ROOT/$dir"
@@ -300,6 +316,11 @@ build_sidecar \
   "brainlink-bridge" \
   "brainlink-bridge.spec"
 
+build_sidecar \
+  "neurostate-sidecar" \
+  "neurostate-bridge" \
+  "neurostate-bridge.spec"
+
 step "Verifying runtime assets"
 
 [[ -d "$ROOT/public/modules/cortex" ]] \
@@ -319,7 +340,8 @@ HOST_TARGET="$(rustc -vV | awk '/^host:/ { print $2 }')"
 for name in \
   brainaccess-bridge \
   ssvep-classifier \
-  brainlink-bridge
+  brainlink-bridge \
+  neurostate-bridge
 do
   file="$ROOT/src-tauri/binaries/${name}-${HOST_TARGET}"
   [[ -x "$file" ]] || die "Missing executable sidecar: $file"

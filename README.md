@@ -11,11 +11,13 @@ The application combines multiple brain-computer interface workflows in one desk
 - visualization,
 - device-specific integrations.
 
-The current application contains three production modules:
+The current application contains these production modules:
 
 - **Cortex 3D** — live EEG visualization on an interactive 3D brain,
 - **TaaLON Miner** — SSVEP control using FBCCA,
-- **Neuorrun** — attention-based interaction using BrainLink Lite / ThinkGear metrics.
+- **Neuorrun** — attention-based interaction using BrainLink Lite / ThinkGear metrics (Unity WebGL),
+- **Neurosniper** and **Neurorun** — the native Unity games, launched from KNeuron and controlled by attention and relaxation that [neurostate](https://github.com/KN-Neuron/NeuroState) computes from a BrainAccess cap,
+- **Signal Check** — neurostate's `check` inside KNeuron: live EEG and per-channel status, for fitting the cap.
 
 ---
 
@@ -43,6 +45,7 @@ The current application contains three production modules:
 ### Supported devices
 
 - **BrainAccess MAXI 009**
+- **BrainAccess MIDI** (any `BA MIDI …` headset)
 - **BrainLink Lite BL002 V2.0**
 
 ---
@@ -68,6 +71,21 @@ KNeuron is designed so that application modules do not communicate directly with
      Cortex 3D        TaaLON Miner    │
                            │          │
                          FBCCA      Neuorrun
+```
+
+BrainAccess caps also feed the native games, through neurostate:
+
+```text
+BrainAccess MAXI / MIDI
+        ↓
+brainaccess-bridge ──→ raw EEG → EEGStreamService → Cortex 3D, TaaLON Miner
+        ↓
+LSL stream "KNeuron <device name>"
+        ↓
+neurostate-bridge (neurostate)
+        ├──→ JSON over TCP 127.0.0.1:13855 → Neurosniper, Neurorun (native)
+        ├──→ ThinkGear TCP 13854, WebSocket 13856, LSL "NeuroState"
+        └──→ NeuroStateService → BrainMetricsService → game modules, Neuorrun
 ```
 
 The key architectural rule is:
@@ -127,6 +145,21 @@ Fp2 = BIAS
 ```
 
 Therefore these two positions are not exposed as EEG measurement channels.
+
+## BrainAccess MIDI
+
+The 16-channel BrainAccess MIDI uses the electrode order of BrainAccess Board's MIDI template:
+
+```text
+0 P8   1 O2   2 P4   3 C4   4 F8   5 F4   6 Oz   7 Cz
+8 Fz   9 Pz  10 F3  11 O1  12 P7  13 C3  14 P3  15 F7
+```
+
+As in Board's template, the reference is Fp1 (not streamed) and the bias feedback is driven from pin 0 (P8). KNeuron connects to the first headset whose Bluetooth name starts with `BA MIDI`.
+
+Each BrainAccess model is a profile in `src/core/devices/adapters/brainaccess/brainAccessProfiles.ts` (labels, bias electrodes, neurostate profile); the adapter and the bridge are shared.
+
+## BrainAccess communication
 
 BrainAccess communication is handled by a Python sidecar:
 
@@ -310,6 +343,72 @@ original game Controller
 
 No FBCCA is used in Neuorrun.
 
+With a BrainAccess cap connected instead of BrainLink, Neuorrun gets attention from neurostate through the same `BrainMetricsService`.
+
+---
+
+## Signal Check
+
+Signal Check is `neurostate check` inside KNeuron, for fitting the cap before you play. Connect your BrainAccess cap, open **Signal Check** on the Dashboard, and adjust electrodes until every channel is fine.
+
+It shows:
+
+- the last 5 seconds of every channel, filtered (1-45 Hz, mains notches), one row per channel; the scale buttons set the µV between rows,
+- each channel's status, coloured as in neurostate's window: OK (light grey), FLAT (grey, no signal from the electrode), NOISY (red, poor contact or movement) and MAINS (orange, mains hum),
+- how many channels are good in the frontal, parietal and occipital regions, which neurostate uses for attention and relaxation,
+- the stream's health: received sampling rate, and gaps (samples lost over Bluetooth),
+- the spectrum over O1/Oz/O2, with the alpha band (8-13 Hz) shaded: alpha should rise clearly when you close your eyes.
+
+The judgement is neurostate's own: the sidecar runs neurostate's filter and channel assessment with the cap's profile, so the thresholds match what neurostate applies while you play (for the MIDI, mains hum may reach 10× the EEG power before a channel counts as bad). The check runs in its own sidecar process, so it can stay open while a game runs.
+
+---
+
+## Neurosniper and Neurorun (native games)
+
+The native Unity builds of [Neurosniper](https://github.com/KN-Neuron/Neurosniper) and [Neurorun](https://github.com/KN-Neuron/Neurorun) run in their own windows. They read attention and relaxation from neurostate's JSON output on `127.0.0.1:13855` themselves; KNeuron:
+
+1. installs each game's latest GitHub release (`src-tauri/src/releases.rs`),
+2. runs neurostate on the connected BrainAccess cap (`NeuroStateService`),
+3. starts and stops the game process (`src-tauri/src/games.rs`),
+4. shows the values the game receives.
+
+To play:
+
+```text
+1. Device → connect your BrainAccess cap.
+2. Dashboard → Neurosniper or Neurorun → PLAY.
+3. For the first minute of good signal, sit still with your eyes open: neurostate
+   measures your resting baseline (BASELINE). After that the game uses your values.
+```
+
+### Releases
+
+PLAY first asks GitHub for the game's latest release. When it is newer than the installed one, KNeuron downloads this platform's build:
+
+```text
+Linux:   <Name>-linux-x86_64-<tag>.tar.gz
+Windows: <Name>-windows-x64-<tag>.zip
+```
+
+It checks the download against the SHA-256 digest GitHub publishes for the asset, unpacks it, and starts it. Builds live in KNeuron's data folder, and only the newest version is kept:
+
+```text
+Linux:   ~/.local/share/pl.kneuron.desktop/games/<game>/<tag>/
+Windows: %APPDATA%\pl.kneuron.desktop\games\<game>\<tag>\
+```
+
+To publish a new version of a game, create a GitHub release with assets named as above; KNeuron picks it up the next time someone presses PLAY. Without internet access, or when GitHub's rate limit (60 requests an hour per network) is reached, PLAY starts the installed version.
+
+**LOCAL BUILD...** plays a build from your computer instead, for example one that isn't released yet. **USE RELEASES** switches back.
+
+### Running games
+
+The game keeps running if you leave its module, and closes with KNeuron. QUIT GAME asks the game to quit and kills it after 5 seconds.
+
+neurostate keeps running while the cap stays connected, so the baseline is measured once per connection, not per game. NEW BASELINE restarts it. The games are playable without a cap; they then behave as if there were no signal.
+
+For safety, the shell only downloads from the games' own GitHub releases, and only launches the known games, from an executable named like the game.
+
 ---
 
 # Repository structure
@@ -319,6 +418,7 @@ KNeuron---Interface/
 │
 ├── brainaccess-sidecar/
 ├── brainlink-sidecar/
+├── neurostate-sidecar/
 ├── ssvep-sidecar/
 │
 ├── unity-patch/
@@ -335,12 +435,17 @@ KNeuron---Interface/
 │   │   ├── devices/
 │   │   ├── eeg/
 │   │   ├── brainMetrics/
+│   │   ├── games/
+│   │   ├── neurostate/
 │   │   └── ssvep/
 │   ├── features/
 │   ├── modules/
 │   │   ├── cortex/
+│   │   ├── externalGame/
 │   │   ├── miner/
-│   │   └── neuorrun/
+│   │   ├── neuorrun/
+│   │   ├── neurorun/
+│   │   └── neurosniper/
 │   └── styles/
 │
 ├── src-tauri/
@@ -429,9 +534,9 @@ The first build can take significantly longer because Node packages, Rust depend
 
 # Linux experimental setup
 
-Linux support is currently experimental and has not been validated end-to-end with the full KNeuron hardware stack.
+Linux runs KNeuron in development mode (`npm run tauri:dev`). It has been checked on Ubuntu 24.04: all four sidecars build, the BrainAccess SDK scans over Bluetooth Low Energy, and the BrainAccess → LSL → neurostate → game path works end to end. Connecting real BrainAccess hardware on Linux still needs to be confirmed. Linux packaging is not set up yet.
 
-The included Linux bootstrap targets **Ubuntu/Debian-family distributions** and is intended primarily for development and platform testing.
+The included Linux bootstrap targets **Ubuntu/Debian-family distributions**.
 
 ### 1. Clone the repository
 
@@ -461,10 +566,10 @@ Python 3
 Rust / Cargo
 Bluetooth utilities
 Python virtual environments
-all three Python sidecars
+all four Python sidecars
 ```
 
-The script attempts to prepare all three Python sidecars and checks device permissions used by serial/Bluetooth devices.
+The script prepares all four Python sidecars and checks device permissions used by serial/Bluetooth devices.
 
 Successful setup does not guarantee that every hardware integration is supported by the underlying vendor SDK on Linux.
 
@@ -482,19 +587,21 @@ If system dependencies are already installed:
 ./setup-and-run.sh --skip-system
 ```
 
-### Important Linux note
+### Build neurostate from a local checkout
 
-If the script adds the current user to:
+The neurostate sidecar bundles the NeuroState package, by default from the commit pinned in `neurostate-sidecar/neurostate.txt`. To build it from a local checkout instead (for example while changing neurostate):
 
-```text
-dialout
+```bash
+NEUROSTATE_SRC=../neurostate ./setup-and-run.sh --skip-system --no-launch
 ```
 
-BrainAccess support on Linux is not currently considered production-validated. The bootstrap can build the BrainAccess sidecar only if the BrainAccess SDK/dependency used by `brainaccess-sidecar/requirements.txt` is available and compatible with the target Linux environment. Real-device connectivity must be verified separately.
+On Windows, set `$env:NEUROSTATE_SRC` before running the bootstrap. neurostate needs Python 3.12 or newer.
 
-log out and log back in before using serial/RFCOMM devices.
+### Important Linux notes
 
-The BrainAccess Python SDK is the component most likely to require platform-specific verification. The bootstrap can rebuild the sidecar only if the BrainAccess SDK/dependency used by `brainaccess-sidecar/requirements.txt` is available for the target Linux environment.
+If the script adds the current user to the `dialout` group, log out and log back in before using serial/RFCOMM devices.
+
+BrainAccess on Linux uses the SDK's Bluetooth Low Energy support (`brainaccess==3.6.1` ships Linux wheels). Bluetooth must be on, and BrainAccess Board must not be connected to the headset at the same time.
 
 ---
 
@@ -753,6 +860,13 @@ brainlink-sidecar/*.spec
 brainlink-sidecar/requirements.txt
 brainlink-sidecar/build.ps1
 
+neurostate-sidecar/*.py
+neurostate-sidecar/*.spec
+neurostate-sidecar/requirements.txt
+neurostate-sidecar/neurostate.txt
+neurostate-sidecar/profiles/
+neurostate-sidecar/build.ps1
+
 public/modules/cortex/*.glb
 
 public/neuorrun/Build/
@@ -894,12 +1008,13 @@ npm run quality
 
 # Sidecars
 
-KNeuron uses three production sidecars:
+KNeuron uses four production sidecars:
 
 ```text
-brainaccess-bridge
-ssvep-classifier
-brainlink-bridge
+brainaccess-bridge   BrainAccess SDK; raw EEG, republished on LSL while streaming
+ssvep-classifier     FBCCA classifier for TaaLON Miner
+brainlink-bridge     BrainLink / ThinkGear metrics
+neurostate-bridge    neurostate on the BrainAccess LSL stream, for the native games and Signal Check
 ```
 
 Tauri's `externalBin` configuration references names without a platform target suffix:
@@ -908,7 +1023,8 @@ Tauri's `externalBin` configuration references names without a platform target s
 "externalBin": [
   "binaries/brainaccess-bridge",
   "binaries/ssvep-classifier",
-  "binaries/brainlink-bridge"
+  "binaries/brainlink-bridge",
+  "binaries/neurostate-bridge"
 ]
 ```
 
@@ -918,6 +1034,7 @@ On Windows, generated files use names similar to:
 brainaccess-bridge-x86_64-pc-windows-msvc.exe
 ssvep-classifier-x86_64-pc-windows-msvc.exe
 brainlink-bridge-x86_64-pc-windows-msvc.exe
+neurostate-bridge-x86_64-pc-windows-msvc.exe
 ```
 
 On a typical x86_64 Linux machine:
@@ -926,6 +1043,7 @@ On a typical x86_64 Linux machine:
 brainaccess-bridge-x86_64-unknown-linux-gnu
 ssvep-classifier-x86_64-unknown-linux-gnu
 brainlink-bridge-x86_64-unknown-linux-gnu
+neurostate-bridge-x86_64-unknown-linux-gnu
 ```
 
 The bootstrap scripts create/copy these locally into:
@@ -1199,6 +1317,40 @@ Also verify Bluetooth:
 ```bash
 rfkill list bluetooth
 systemctl status bluetooth
+```
+
+---
+
+## A native game does not react to the cap
+
+Open the game's module in KNeuron and check the BRAIN SIGNAL panel:
+
+- `NO CAP`: connect the BrainAccess cap on the Device page.
+- `BASELINE`: neurostate is measuring your resting baseline; sit still with your eyes open for about a minute.
+- `POOR SIGNAL` / `NO SIGNAL`: adjust the electrodes, or bring the headset closer.
+- `ERROR` mentioning `json_tcp` or an address in use: another neurostate is already running (for example one started with `uv run neurostate run`). Stop it and press RETRY.
+
+The games read `127.0.0.1:13855`; they reconnect on their own when neurostate restarts.
+
+---
+
+## A game won't download
+
+The GAME panel shows the reason. Common ones:
+
+- `Could not reach GitHub`: no internet access. PLAY starts the installed version if there is one.
+- `GitHub's rate limit was reached`: wait up to an hour, or use LOCAL BUILD... meanwhile.
+- `has no build for this platform`: the latest release lacks a `-linux-x86_64-….tar.gz` (or `-windows-x64-….zip`) asset.
+- `is corrupted`: the download didn't match GitHub's SHA-256 digest; press PLAY to try again.
+
+---
+
+## A local build is "not executable" on Linux
+
+Archives extracted with some tools lose the executable bit:
+
+```bash
+chmod +x /path/to/Neurosniper/Neurosniper.x86_64
 ```
 
 ---
@@ -2817,6 +2969,8 @@ There should be one canonical production registration path for each type of exte
 - [x] Windows sidecar packaging
 - [x] Windows bootstrap script
 - [x] Linux bootstrap script
+- [x] BrainAccess MIDI support
+- [x] neurostate sidecar and native game launcher (Neurosniper, Neurorun)
 - [x] developer extension guide
 - [x] device/module/sidecar implementation guide
 - [x] lifecycle/cleanup rules and extension checklists

@@ -2,10 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BrainAccessEEGAdapter } from "./BrainAccessEEGAdapter";
 
+import { BRAINACCESS_MIDI_PROFILE } from "./brainAccessProfiles";
+
 import type {
   BrainAccessBridgeLike,
+  BrainAccessConnectOptions,
   BrainAccessDisconnectListener,
   BrainAccessSampleListener,
+  BrainAccessStreamOptions,
+  BrainAccessStreamStartResult,
 } from "./BrainAccessBridge";
 
 import type { EEGSampleBatch } from "../../../eeg/models";
@@ -28,16 +33,26 @@ class FakeBridge implements BrainAccessBridgeLike {
 
   readonly scan = vi.fn(async () => this.devices);
 
-  readonly connect = vi.fn(async () => ({
-    deviceName: "BA MAXI 009",
+  channelCount = 32;
+
+  streamStartResult: BrainAccessStreamStartResult = {
+    streaming: true,
+    lsl: true,
+    lslError: null,
+  };
+
+  readonly connect = vi.fn(async (deviceName: string, _options?: BrainAccessConnectOptions) => ({
+    deviceName,
     sampleRateHz: 250,
-    channelCount: 32,
+    channelCount: this.channelCount,
     battery: 80,
   }));
 
   readonly disconnect = vi.fn(async () => undefined);
 
-  readonly startStream = vi.fn(async () => undefined);
+  readonly startStream = vi.fn(
+    async (_options?: BrainAccessStreamOptions) => this.streamStartResult,
+  );
 
   readonly stopStream = vi.fn(async () => undefined);
 
@@ -86,7 +101,7 @@ describe("BrainAccessEEGAdapter", () => {
 
     expect(bridge.scan).toHaveBeenCalledOnce();
 
-    expect(bridge.connect).toHaveBeenCalledWith("BA MAXI 009");
+    expect(bridge.connect).toHaveBeenCalledWith("BA MAXI 009", { biasElectrodes: undefined });
 
     expect(adapter.getStatus().state).toBe("connected");
   });
@@ -301,6 +316,70 @@ describe("BrainAccessEEGAdapter", () => {
     });
   });
 
+  it("reports channels in microvolts", async () => {
+    const adapter = new BrainAccessEEGAdapter(new FakeBridge());
+
+    await adapter.connect();
+
+    const streamInfo = await adapter.getStreamInfo();
+
+    expect(new Set(streamInfo.channels.map((channel) => channel.unit))).toEqual(new Set(["uV"]));
+  });
+
+  it("republishes the stream on LSL for neurostate while streaming", async () => {
+    const bridge = new FakeBridge();
+
+    const adapter = new BrainAccessEEGAdapter(bridge);
+
+    await adapter.connect();
+
+    expect(adapter.getLslStream()).toBeNull();
+
+    await adapter.startStream();
+
+    const options = bridge.startStream.mock.calls[0]?.[0];
+
+    expect(options?.lsl).toMatchObject({
+      name: "KNeuron BA MAXI 009",
+      sourceId: "kneuron-BA MAXI 009",
+    });
+
+    expect(options?.lsl?.channelLabels).toHaveLength(32);
+
+    expect(options?.lsl?.channelLabels[0]).toBe("AF3");
+
+    expect(adapter.getLslStream()).toEqual({
+      name: "KNeuron BA MAXI 009",
+      neurostateProfile: "standard",
+    });
+
+    await adapter.stopStream();
+
+    expect(adapter.getLslStream()).toBeNull();
+  });
+
+  it("keeps streaming EEG when LSL republishing fails", async () => {
+    const bridge = new FakeBridge();
+
+    bridge.streamStartResult = {
+      streaming: true,
+      lsl: false,
+      lslError: "liblsl not found",
+    };
+
+    const adapter = new BrainAccessEEGAdapter(bridge);
+
+    await adapter.connect();
+
+    await adapter.startStream();
+
+    expect(adapter.isStreaming()).toBe(true);
+
+    expect(adapter.getLslStream()).toBeNull();
+
+    expect(adapter.getLslError()).toBe("liblsl not found");
+  });
+
   it("disconnects and stops the sidecar", async () => {
     const bridge = new FakeBridge();
 
@@ -317,5 +396,86 @@ describe("BrainAccessEEGAdapter", () => {
     expect(adapter.getStatus().state).toBe("disconnected");
 
     expect(adapter.isStreaming()).toBe(false);
+  });
+
+  describe("with the BrainAccess MIDI profile", () => {
+    function midiBridge(): FakeBridge {
+      const bridge = new FakeBridge();
+
+      bridge.devices = [
+        { name: "BA MAXI 009", macAddress: "00:00:00:00:00:01" },
+        { name: "BA MIDI 026", macAddress: "00:00:00:00:00:02" },
+      ];
+
+      bridge.channelCount = 16;
+
+      return bridge;
+    }
+
+    it("connects to any BA MIDI headset with the bias on pin 0", async () => {
+      const bridge = midiBridge();
+
+      const adapter = new BrainAccessEEGAdapter(bridge, BRAINACCESS_MIDI_PROFILE);
+
+      await adapter.connect();
+
+      expect(adapter.info.id).toBe("brainaccess-midi");
+
+      expect(bridge.connect).toHaveBeenCalledWith("BA MIDI 026", { biasElectrodes: [0] });
+
+      expect(adapter.getStatus().message).toContain("Configured 16-channel cap mapping");
+    });
+
+    it("labels the 16 channels in Board's MIDI template order", async () => {
+      const adapter = new BrainAccessEEGAdapter(midiBridge(), BRAINACCESS_MIDI_PROFILE);
+
+      await adapter.connect();
+
+      const streamInfo = await adapter.getStreamInfo();
+
+      expect(streamInfo.channels.map((channel) => channel.label)).toEqual([
+        "P8",
+        "O2",
+        "P4",
+        "C4",
+        "F8",
+        "F4",
+        "Oz",
+        "Cz",
+        "Fz",
+        "Pz",
+        "F3",
+        "O1",
+        "P7",
+        "C3",
+        "P3",
+        "F7",
+      ]);
+    });
+
+    it("hands neurostate the MIDI profile", async () => {
+      const adapter = new BrainAccessEEGAdapter(midiBridge(), BRAINACCESS_MIDI_PROFILE);
+
+      await adapter.connect();
+
+      await adapter.startStream();
+
+      expect(adapter.getLslStream()).toEqual({
+        name: "KNeuron BA MIDI 026",
+        neurostateProfile: "brainaccess-midi",
+      });
+    });
+
+    it("does not mistake other headsets for a MIDI", async () => {
+      const bridge = new FakeBridge();
+
+      bridge.devices = [{ name: "BA MIDIX 1", macAddress: "00:00:00:00:00:03" }];
+
+      const adapter = new BrainAccessEEGAdapter(bridge, BRAINACCESS_MIDI_PROFILE);
+
+      await expect(adapter.connect()).rejects.toThrow(
+        'BrainAccess device "BA MIDI" was not found. Discovered: BA MIDIX 1.',
+      );
+    });
   });
 });

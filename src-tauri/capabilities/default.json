@@ -1,13 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
-  "description": "Minimal permissions required by the KNeuron custom title bar and approved sidecars.",
+  "description": "Minimal permissions required by the KNeuron custom title bar, approved sidecars and choosing game executables.",
   "windows": ["main"],
   "permissions": [
     "core:window:allow-close",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-start-dragging",
+    "dialog:allow-open",
     "shell:allow-stdin-write",
     "shell:allow-kill",
     {
@@ -23,6 +24,10 @@
         },
         {
           "name": "binaries/brainlink-bridge",
+          "sidecar": true
+        },
+        {
+          "name": "binaries/neurostate-bridge",
           "sidecar": true
         }
       ]

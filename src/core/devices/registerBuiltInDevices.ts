@@ -1,4 +1,11 @@
+import { BrainAccessBridge } from "./adapters/brainaccess/BrainAccessBridge";
+
 import { BrainAccessEEGAdapter } from "./adapters/brainaccess/BrainAccessEEGAdapter";
+
+import {
+  BRAINACCESS_MAXI_PROFILE,
+  BRAINACCESS_MIDI_PROFILE,
+} from "./adapters/brainaccess/brainAccessProfiles";
 
 import { BrainLinkAdapter } from "./adapters/brainlink/BrainLinkAdapter";
 
@@ -13,7 +20,11 @@ import { deviceRegistry } from "./deviceRegistry";
  * and modules can be worked on without physical hardware.
  */
 function createBuiltInDevices(): DeviceAdapter[] {
-  const devices: DeviceAdapter[] = [new BrainAccessEEGAdapter(), new BrainLinkAdapter()];
+  const devices: DeviceAdapter[] = [
+    new BrainAccessEEGAdapter(new BrainAccessBridge(), BRAINACCESS_MAXI_PROFILE),
+    new BrainAccessEEGAdapter(new BrainAccessBridge(), BRAINACCESS_MIDI_PROFILE),
+    new BrainLinkAdapter(),
+  ];
 
   return devices;
 }

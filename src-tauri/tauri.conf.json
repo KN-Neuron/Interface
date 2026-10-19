@@ -62,7 +62,8 @@
     "externalBin": [
       "binaries/brainaccess-bridge",
       "binaries/ssvep-classifier",
-      "binaries/brainlink-bridge"
+      "binaries/brainlink-bridge",
+      "binaries/neurostate-bridge"
     ],
     "category": "DeveloperTool",
     "shortDescription": "Modular brain-computer interface platform",

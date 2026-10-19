@@ -7,6 +7,10 @@ Protocol:
 
 This process owns the BrainAccess SDK lifecycle. React and KNeuron modules never
 import the BrainAccess Python package directly.
+
+While streaming, the EEG can also be republished as a Lab Streaming Layer (LSL)
+stream, so neurostate can turn it into attention/relaxation values for the
+native games and any LSL tool can record it.
 """
 
 from __future__ import annotations
@@ -31,6 +35,10 @@ except Exception as exc:
 PROTOCOL_VERSION = 1
 TARGET_BATCH_SAMPLES = 10
 
+# Re-anchor LSL timestamps to the local clock when the device's sample count
+# drifts this far from it (clock drift, or the sample counter restarting).
+LSL_MAX_DRIFT_S = 1.0
+
 
 _write_lock = threading.Lock()
 
@@ -48,17 +56,97 @@ def log(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
+def device_model_name(manager: Any) -> str | None:
+    """The connected headset's model ("MIDI", "MAXI", ...), or None if the SDK can't tell."""
+    try:
+        return str(manager.get_device_info().device_model.name)
+    except Exception:
+        return None
+
+
+class LslPublisher:
+    """Republishes the EEG stream on LSL.
+
+    Timestamps come from the device's sample numbers, so they stay regular despite
+    Bluetooth jitter, and samples lost over Bluetooth show up as gaps.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        source_id: str,
+        labels: list[str],
+        sample_rate_hz: float,
+        device_name: str,
+    ) -> None:
+        # Imported here so the bridge, and its tests, work without liblsl.
+        import pylsl
+
+        self._clock: Callable[[], float] = pylsl.local_clock
+
+        info = pylsl.StreamInfo(
+            name, "EEG", len(labels), sample_rate_hz, pylsl.cf_float32, source_id
+        )
+        desc = info.desc()
+        desc.append_child_value("manufacturer", "BrainAccess")
+        desc.append_child_value("device", device_name)
+        channels = desc.append_child("channels")
+        for label in labels:
+            channel = channels.append_child("channel")
+            channel.append_child_value("label", label)
+            channel.append_child_value("unit", "microvolts")
+            channel.append_child_value("type", "EEG")
+
+        self._outlet = pylsl.StreamOutlet(info)
+        self._period = 1.0 / sample_rate_hz
+        self._channel_count = len(labels)
+
+        # (sample number, LSL time) of a reference sample.
+        self._anchor: tuple[float, float] | None = None
+        self._last_number: float | None = None
+
+    def push(self, eeg: np.ndarray, sample_numbers: np.ndarray) -> None:
+        """Push channels x samples of EEG, with the device's sample number for each sample."""
+        if eeg.shape[0] != self._channel_count:
+            raise RuntimeError(
+                f"LSL stream has {self._channel_count} channels, got {eeg.shape[0]}."
+            )
+
+        samples = np.ascontiguousarray(eeg.T, dtype=np.float32)
+        now = self._clock()
+
+        if sample_numbers.size != eeg.shape[1] or not np.all(np.isfinite(sample_numbers)):
+            # No usable sample numbers: LSL derives the timestamps from the push time.
+            self._outlet.push_chunk(samples)
+            return
+
+        last = float(sample_numbers[-1])
+        restarted = self._last_number is not None and float(sample_numbers[0]) <= self._last_number
+        if self._anchor is None or restarted:
+            self._anchor = (last, now)
+
+        stamps = self._anchor[1] + (sample_numbers - self._anchor[0]) * self._period
+        if abs(float(stamps[-1]) - now) > LSL_MAX_DRIFT_S:
+            self._anchor = (last, now)
+            stamps = now + (sample_numbers - last) * self._period
+
+        self._last_number = last
+        self._outlet.push_chunk(samples, stamps.tolist())
+
+
 class BrainAccessSession:
     def __init__(self) -> None:
         self._core_initialized = False
         self._manager: EEGManager | None = None
 
         self._device_name: str | None = None
+        self._model: str | None = None
         self._sample_rate_hz: float | None = None
         self._eeg_count = 0
 
         self._streaming = False
         self._sequence_cursor = 0
+        self._lsl: LslPublisher | None = None
 
         self._acquisition_lock = threading.Lock()
         self._pending_eeg: np.ndarray | None = None
@@ -88,7 +176,11 @@ class BrainAccessSession:
             for device in devices
         ]
 
-    def connect(self, device_name: str) -> dict[str, Any]:
+    def connect(
+        self,
+        device_name: str,
+        bias_electrodes: list[int] | None = None,
+    ) -> dict[str, Any]:
         if self._manager is not None:
             if self._device_name == device_name:
                 return self.connection_info()
@@ -126,12 +218,20 @@ class BrainAccessSession:
                 manager.set_channel_enabled(channel, True)
                 manager.set_channel_gain(channel, GainMode.X8)
 
-            # This follows the BrainAccess SDK minimal acquisition example.
-            # The exact montage/bias semantics must still be verified for the physical cap.
-            manager.set_channel_bias(
-                eeg_channel.ELECTRODE_MEASUREMENT + eeg_count - 1,
-                True,
-            )
+            # Electrodes whose signal drives the bias feedback. Without a request this
+            # follows the BrainAccess SDK minimal acquisition example (last electrode);
+            # the adapter passes the cap's own choice, e.g. pin 0 like Board's MIDI template.
+            for electrode in bias_electrodes or [eeg_count - 1]:
+                if not 0 <= electrode < eeg_count:
+                    raise RuntimeError(
+                        f"Bias electrode {electrode} is outside the device's "
+                        f"{eeg_count} electrodes."
+                    )
+
+                manager.set_channel_bias(
+                    eeg_channel.ELECTRODE_MEASUREMENT + electrode,
+                    True,
+                )
 
             # Keep the native sample number for packet-loss accounting.
             manager.set_channel_enabled(eeg_channel.SAMPLE_NUMBER, True)
@@ -145,6 +245,7 @@ class BrainAccessSession:
 
             self._manager = manager
             self._device_name = device_name
+            self._model = device_model_name(manager)
             self._sample_rate_hz = sample_rate_hz
             self._eeg_count = eeg_count
             self._reset_pending()
@@ -179,39 +280,61 @@ class BrainAccessSession:
 
         return {
             "deviceName": self._device_name,
+            "model": self._model,
             "sampleRateHz": self._sample_rate_hz,
             "channelCount": self._eeg_count,
         }
 
-    def start_stream(self) -> dict[str, Any]:
+    def start_stream(self, lsl: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Start acquisition, optionally republishing it on LSL.
+
+        ``lsl`` holds the stream's ``name``, ``sourceId`` and one ``channelLabels``
+        entry per EEG electrode.
+        """
         manager = self._require_manager()
 
         if self._streaming:
-            return {"streaming": True}
+            return {"streaming": True, "lsl": self._lsl is not None, "lslError": None}
+
+        # Republishing is best-effort: modules reading the bridge's own sample events
+        # keep working even when LSL can't start.
+        lsl_error: str | None = None
+        if lsl is not None:
+            try:
+                self._lsl = self._create_lsl_publisher(lsl)
+            except Exception as exc:
+                lsl_error = str(exc)
+                log(f"LSL republishing unavailable: {exc}")
 
         self._reset_pending()
         self._sequence_cursor = 0
 
-        manager.set_callback_chunk(self._on_chunk)
-        manager.load_config()
-        manager.start_stream()
+        try:
+            manager.set_callback_chunk(self._on_chunk)
+            manager.load_config()
+            manager.start_stream()
+        except Exception:
+            self._lsl = None
+            raise
 
         self._streaming = True
         log("BrainAccess EEG stream started.")
 
-        return {"streaming": True}
+        return {"streaming": True, "lsl": self._lsl is not None, "lslError": lsl_error}
 
     def stop_stream(self) -> dict[str, Any]:
         manager = self._manager
 
         if manager is None or not self._streaming:
             self._streaming = False
+            self._lsl = None
             self._reset_pending()
             return {"streaming": False}
 
         manager.stop_stream()
 
         self._streaming = False
+        self._lsl = None
         self._reset_pending()
 
         log("BrainAccess EEG stream stopped.")
@@ -234,6 +357,8 @@ class BrainAccessSession:
         finally:
             self._manager = None
             self._device_name = None
+            self._model = None
+            self._lsl = None
             self._sample_rate_hz = None
             self._eeg_count = 0
             self._streaming = False
@@ -257,6 +382,28 @@ class BrainAccessSession:
             raise RuntimeError("No BrainAccess device is connected.")
 
         return self._manager
+
+    def _create_lsl_publisher(self, options: dict[str, Any]) -> LslPublisher:
+        name = str(options.get("name", "")).strip()
+        source_id = str(options.get("sourceId", "")).strip() or name
+        labels = [str(label) for label in options.get("channelLabels") or []]
+
+        if not name:
+            raise RuntimeError("start_stream lsl options require a name.")
+
+        if len(labels) != self._eeg_count:
+            raise RuntimeError(
+                f"start_stream lsl options list {len(labels)} channel labels, "
+                f"but the device has {self._eeg_count} EEG electrodes."
+            )
+
+        assert self._sample_rate_hz is not None and self._device_name is not None
+
+        publisher = LslPublisher(
+            name, source_id, labels, self._sample_rate_hz, self._device_name
+        )
+        log(f'Publishing EEG on LSL as "{name}".')
+        return publisher
 
     def _reset_pending(self) -> None:
         with self._acquisition_lock:
@@ -306,6 +453,7 @@ class BrainAccessSession:
             sample_numbers = arr[0, :take].copy()
             eeg = arr[1 : self._eeg_count + 1, :take].copy()
 
+            self._publish_lsl(eeg, sample_numbers)
             self._append_samples(eeg, sample_numbers)
 
         except Exception as exc:
@@ -313,6 +461,24 @@ class BrainAccessSession:
                 {
                     "type": "bridge-error",
                     "message": f"BrainAccess sample callback failed: {exc}",
+                }
+            )
+
+    def _publish_lsl(self, eeg: np.ndarray, sample_numbers: np.ndarray) -> None:
+        publisher = self._lsl
+
+        if publisher is None:
+            return
+
+        try:
+            publisher.push(eeg, sample_numbers)
+        except Exception as exc:
+            # Stop republishing rather than report the same failure for every chunk.
+            self._lsl = None
+            emit(
+                {
+                    "type": "bridge-error",
+                    "message": f"LSL republishing stopped: {exc}",
                 }
             )
 
@@ -423,13 +589,16 @@ def handle_request(request: dict[str, Any]) -> bool:
             if not device_name:
                 raise RuntimeError("connect requires payload.deviceName.")
 
-            response_ok(request_id, SESSION.connect(device_name))
+            bias = payload.get("biasElectrodes")
+            bias_electrodes = [int(electrode) for electrode in bias] if bias else None
+
+            response_ok(request_id, SESSION.connect(device_name, bias_electrodes))
 
         elif command == "stream_info":
             response_ok(request_id, SESSION.connection_info())
 
         elif command == "start_stream":
-            response_ok(request_id, SESSION.start_stream())
+            response_ok(request_id, SESSION.start_stream(payload.get("lsl")))
 
         elif command == "stop_stream":
             response_ok(request_id, SESSION.stop_stream())

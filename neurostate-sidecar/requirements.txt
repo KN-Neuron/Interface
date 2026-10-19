@@ -1,0 +1,3 @@
+# neurostate itself is installed by the bootstrap scripts: from NEUROSTATE_SRC when
+# set (a local checkout), otherwise from the pinned GitHub commit in neurostate.txt.
+pyinstaller>=6,<7

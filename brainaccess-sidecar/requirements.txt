@@ -1,3 +1,4 @@
 brainaccess==3.6.1
 numpy>=2.0,<3
+pylsl>=1.17,<2
 pyinstaller>=6,<7

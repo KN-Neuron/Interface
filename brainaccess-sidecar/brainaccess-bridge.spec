@@ -3,6 +3,10 @@ from PyInstaller.utils.hooks import collect_all
 
 datas, binaries, hiddenimports = collect_all("brainaccess")
 
+# pylsl loads liblsl from its own lib/ folder at runtime.
+for collected, target in zip(collect_all("pylsl"), (datas, binaries, hiddenimports)):
+    target += collected
+
 a = Analysis(
     ["bridge.py"],
     pathex=[],

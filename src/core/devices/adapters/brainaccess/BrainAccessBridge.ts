@@ -11,9 +11,42 @@ export interface BrainAccessDiscoveredDevice {
 
 export interface BrainAccessConnectionInfo {
   deviceName: string;
+  /**
+   * Model reported by the SDK, e.g. "MIDI" or "MAXI"; null if it can't tell.
+   */
+  model?: string | null;
   sampleRateHz: number;
   channelCount: number;
   battery?: number | null;
+}
+
+export interface BrainAccessConnectOptions {
+  /**
+   * Electrodes whose signal drives the bias feedback.
+   */
+  biasElectrodes?: readonly number[];
+}
+
+export interface BrainAccessLslOptions {
+  name: string;
+  sourceId: string;
+  channelLabels: readonly string[];
+}
+
+export interface BrainAccessStreamOptions {
+  /**
+   * Republish the stream on LSL while it runs.
+   */
+  lsl?: BrainAccessLslOptions;
+}
+
+export interface BrainAccessStreamStartResult {
+  streaming: boolean;
+  /**
+   * Whether the stream is republished on LSL.
+   */
+  lsl: boolean;
+  lslError: string | null;
 }
 
 export type BrainAccessSampleListener = (batch: Readonly<EEGSampleBatch>) => void;
@@ -27,11 +60,14 @@ export interface BrainAccessBridgeLike {
 
   scan(): Promise<readonly BrainAccessDiscoveredDevice[]>;
 
-  connect(deviceName: string): Promise<BrainAccessConnectionInfo>;
+  connect(
+    deviceName: string,
+    options?: BrainAccessConnectOptions,
+  ): Promise<BrainAccessConnectionInfo>;
 
   disconnect(): Promise<void>;
 
-  startStream(): Promise<void>;
+  startStream(options?: BrainAccessStreamOptions): Promise<BrainAccessStreamStartResult>;
 
   stopStream(): Promise<void>;
 
@@ -151,9 +187,13 @@ export class BrainAccessBridge implements BrainAccessBridgeLike {
     return this.request<BrainAccessDiscoveredDevice[]>("scan");
   }
 
-  async connect(deviceName: string): Promise<BrainAccessConnectionInfo> {
+  async connect(
+    deviceName: string,
+    options: BrainAccessConnectOptions = {},
+  ): Promise<BrainAccessConnectionInfo> {
     return this.request<BrainAccessConnectionInfo>("connect", {
       deviceName,
+      biasElectrodes: options.biasElectrodes,
     });
   }
 
@@ -161,8 +201,10 @@ export class BrainAccessBridge implements BrainAccessBridgeLike {
     await this.request("disconnect");
   }
 
-  async startStream(): Promise<void> {
-    await this.request("start_stream");
+  async startStream(options: BrainAccessStreamOptions = {}): Promise<BrainAccessStreamStartResult> {
+    return this.request<BrainAccessStreamStartResult>("start_stream", {
+      lsl: options.lsl,
+    });
   }
 
   async stopStream(): Promise<void> {

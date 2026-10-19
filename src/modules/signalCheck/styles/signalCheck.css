@@ -1,0 +1,286 @@
+.signal-check {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  color: #f6f6f6;
+  background: #060606;
+  overflow: hidden;
+}
+
+.signal-check__bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 66px;
+  padding: 10px 16px 10px 20px;
+  border-bottom: 1px solid #282828;
+  background: #0e0e0e;
+}
+
+.signal-check__title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.signal-check__title small,
+.signal-check__panel h2 {
+  margin: 0;
+  color: #868686;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.signal-check__title strong {
+  overflow: hidden;
+  font-size: 19px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.signal-check__bar-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.signal-check__scale {
+  display: flex;
+  border: 1px solid #292929;
+}
+
+.signal-check__scale button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  color: #9a9a9a;
+  background: #090909;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.signal-check__scale button + button {
+  border-left: 1px solid #292929;
+}
+
+.signal-check__scale button.is-active {
+  color: #ffffff;
+  background: #1f1f1f;
+}
+
+.signal-check__exit,
+.signal-check__empty button {
+  border: 0;
+  padding: 0 16px;
+  color: #ededed;
+  background: #dd0610;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.signal-check__body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 16px;
+  min-height: 0;
+  padding: 16px;
+}
+
+.signal-check__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px 14px 8px;
+  border: 1px solid #222222;
+  background: #0b0b0b;
+}
+
+.signal-check__stream {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  color: #9a9a9a;
+  font-size: 12px;
+}
+
+.signal-check__stream .is-bad {
+  color: #ff8a95;
+}
+
+.signal-check__traces {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 300px;
+}
+
+.signal-check__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.signal-check__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  border: 1px solid #222222;
+  background: #0b0b0b;
+}
+
+.signal-check__regions {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signal-check__regions li {
+  display: flex;
+  justify-content: space-between;
+  padding-left: 10px;
+  border-left: 2px solid #3a3a3a;
+  font-size: 13px;
+  text-transform: capitalize;
+}
+
+.signal-check__regions li.is-good {
+  border-left-color: #60c060;
+}
+
+.signal-check__regions li.is-partial {
+  border-left-color: #f0a030;
+}
+
+.signal-check__regions li.is-bad {
+  border-left-color: #e05050;
+}
+
+.signal-check__regions strong {
+  font-weight: 600;
+  text-transform: none;
+}
+
+.signal-check__verdict {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.signal-check__verdict.is-good {
+  color: #60c060;
+}
+
+.signal-check__verdict.is-bad {
+  color: #f0a030;
+}
+
+.signal-check__channels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.signal-check__channels li {
+  display: grid;
+  grid-template-columns: 8px 34px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.signal-check__channels li strong {
+  font-weight: 650;
+}
+
+.signal-check__channels li > span:nth-child(3) {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.signal-check__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.signal-check__rms {
+  color: #8c8c8c;
+  font-variant-numeric: tabular-nums;
+}
+
+.signal-check__spectrum {
+  display: block;
+  width: 100%;
+  height: 190px;
+}
+
+.signal-check__muted {
+  margin: 0;
+  color: #7c7c7c;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.signal-check__empty {
+  display: grid;
+  flex: 1;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 32px;
+  text-align: center;
+}
+
+.signal-check__empty > span {
+  color: #d71f27;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.17em;
+}
+
+.signal-check__empty > span.is-error {
+  color: #ff93a1;
+}
+
+.signal-check__empty p {
+  max-width: 520px;
+  margin: 0;
+  color: #a0a0a0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.signal-check__empty button {
+  min-height: 32px;
+}
+
+@media (max-width: 1100px) {
+  .signal-check__body {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+}

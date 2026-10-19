@@ -52,6 +52,9 @@ brainlink-sidecar/dist/
 ssvep-sidecar/build/
 ssvep-sidecar/dist/
 
+neurostate-sidecar/build/
+neurostate-sidecar/dist/
+
 
 # ---------------------------------------------------------
 # IDE / editor files

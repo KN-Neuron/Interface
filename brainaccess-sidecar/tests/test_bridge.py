@@ -90,6 +90,66 @@ class FakeEEGManager:
         self.destroy_calls += 1
 
 
+class FakeXml:
+    def __init__(self) -> None:
+        self.values: dict[str, str] = {}
+        self.children: list[tuple[str, "FakeXml"]] = []
+
+    def append_child_value(self, name: str, value: str) -> "FakeXml":
+        self.values[name] = value
+        return self
+
+    def append_child(self, name: str) -> "FakeXml":
+        child = FakeXml()
+        self.children.append((name, child))
+        return child
+
+
+class FakeStreamInfo:
+    def __init__(self, name, type_, channel_count, srate, fmt, source_id) -> None:
+        self.args = (name, type_, channel_count, srate, fmt, source_id)
+        self._desc = FakeXml()
+
+    def desc(self) -> FakeXml:
+        return self._desc
+
+
+class FakeStreamOutlet:
+    instances: list["FakeStreamOutlet"] = []
+
+    def __init__(self, info: FakeStreamInfo) -> None:
+        self.info = info
+        self.pushed: list[tuple[np.ndarray, object]] = []
+        type(self).instances.append(self)
+
+    def push_chunk(self, samples, timestamp=0.0) -> None:
+        self.pushed.append((np.asarray(samples), timestamp))
+
+
+def make_fake_pylsl(clock: list[float]) -> types.ModuleType:
+    module = types.ModuleType("pylsl")
+    module.StreamInfo = FakeStreamInfo
+    module.StreamOutlet = FakeStreamOutlet
+    module.cf_float32 = 1
+    module.local_clock = lambda: clock[0]
+    return module
+
+
+def make_chunk(first_number: int, n: int, channels: int = 4) -> np.ndarray:
+    chunk = np.zeros((channels + 2, n), dtype=float)
+    chunk[0] = np.arange(first_number, first_number + n)
+    chunk[1 : channels + 1] = np.arange(channels * n, dtype=float).reshape(channels, n)
+    chunk[channels + 1] = 1
+    return chunk
+
+
+LSL_OPTIONS = {
+    "name": "KNeuron BA MIDI 026",
+    "sourceId": "kneuron-BA MIDI 026",
+    "channelLabels": ["P8", "O2", "P4", "C4"],
+}
+
+
 class BrainAccessBridgeTests(unittest.TestCase):
     MODULE_NAMES = (
         "brainaccess",
@@ -191,6 +251,7 @@ class BrainAccessBridgeTests(unittest.TestCase):
             info,
             {
                 "deviceName": "BA MAXI 009",
+                "model": None,
                 "sampleRateHz": 250.0,
                 "channelCount": 4,
                 "battery": 87,
@@ -208,6 +269,130 @@ class BrainAccessBridgeTests(unittest.TestCase):
         second = session.connect("BA MAXI 009")
         self.assertEqual(second["deviceName"], "BA MAXI 009")
         self.assertEqual(len(FakeEEGManager.instances), 1)
+
+    def test_connect_uses_requested_bias_electrodes(self) -> None:
+        session = self.bridge.BrainAccessSession()
+
+        session.connect("BA MIDI 026", [0])
+
+        self.assertEqual(FakeEEGManager.instances[-1].biases, [(100, True)])
+
+    def test_connect_rejects_bias_electrode_outside_the_device(self) -> None:
+        session = self.bridge.BrainAccessSession()
+
+        with self.assertRaisesRegex(RuntimeError, "Bias electrode 7"):
+            session.connect("BA MIDI 026", [7])
+
+        self.assertEqual(FakeEEGManager.instances[-1].destroy_calls, 1)
+
+    def test_connect_reports_the_device_model(self) -> None:
+        class MidiManager(FakeEEGManager):
+            def get_device_info(self):
+                model = types.SimpleNamespace(name="MIDI")
+                return types.SimpleNamespace(device_model=model)
+
+        session = self.bridge.BrainAccessSession()
+        with patch.object(self.bridge, "EEGManager", MidiManager):
+            info = session.connect("BA MIDI 026")
+
+        self.assertEqual(info["model"], "MIDI")
+
+    def test_handle_request_passes_bias_and_lsl_options(self) -> None:
+        session = Mock()
+        session.connect.return_value = {}
+        session.start_stream.return_value = {}
+
+        with (
+            patch.object(self.bridge, "SESSION", session),
+            patch.object(self.bridge, "emit"),
+        ):
+            self.bridge.handle_request(
+                {
+                    "id": "1",
+                    "command": "connect",
+                    "payload": {"deviceName": "BA MIDI 026", "biasElectrodes": [0]},
+                }
+            )
+            self.bridge.handle_request(
+                {"id": "2", "command": "start_stream", "payload": {"lsl": LSL_OPTIONS}}
+            )
+
+        session.connect.assert_called_once_with("BA MIDI 026", [0])
+        session.start_stream.assert_called_once_with(LSL_OPTIONS)
+
+    def test_stream_republishes_on_lsl_with_regular_timestamps(self) -> None:
+        clock = [1000.0]
+        FakeStreamOutlet.instances.clear()
+        session = self.bridge.BrainAccessSession()
+        session.connect("BA MIDI 026")
+
+        with patch.dict(sys.modules, {"pylsl": make_fake_pylsl(clock)}):
+            started = session.start_stream(LSL_OPTIONS)
+
+        self.assertEqual(started, {"streaming": True, "lsl": True, "lslError": None})
+        outlet = FakeStreamOutlet.instances[-1]
+        name, type_, count, srate, _, source_id = outlet.info.args
+        self.assertEqual((name, type_, count, srate), ("KNeuron BA MIDI 026", "EEG", 4, 250.0))
+        self.assertEqual(source_id, "kneuron-BA MIDI 026")
+        channels = outlet.info.desc().children[0][1].children
+        self.assertEqual(
+            [channel.values for _, channel in channels][0],
+            {"label": "P8", "unit": "microvolts", "type": "EEG"},
+        )
+
+        with patch.object(self.bridge, "emit"):
+            session._on_chunk(make_chunk(0, 5), 5)
+            # Bluetooth jitter: the next chunk arrives late, but its samples follow on.
+            clock[0] = 1000.5
+            session._on_chunk(make_chunk(5, 5), 5)
+
+        (first, first_stamps), (second, second_stamps) = outlet.pushed
+        self.assertEqual(first.shape, (5, 4))
+        self.assertEqual(first.dtype, np.float32)
+        np.testing.assert_allclose(first_stamps, 1000.0 + (np.arange(5) - 4) / 250.0)
+        np.testing.assert_allclose(second_stamps, 1000.0 + (np.arange(5, 10) - 4) / 250.0)
+
+        # Stopping ends the republishing; a stream started without options has none.
+        session.stop_stream()
+        self.assertFalse(session.start_stream()["lsl"])
+
+    def test_lsl_timestamps_reanchor_after_large_drift(self) -> None:
+        clock = [10.0]
+        FakeStreamOutlet.instances.clear()
+        session = self.bridge.BrainAccessSession()
+        session.connect("BA MIDI 026")
+
+        with patch.dict(sys.modules, {"pylsl": make_fake_pylsl(clock)}):
+            session.start_stream(LSL_OPTIONS)
+
+        with patch.object(self.bridge, "emit"):
+            session._on_chunk(make_chunk(0, 5), 5)
+            clock[0] = 20.0
+            session._on_chunk(make_chunk(5, 5), 5)
+
+        _, stamps = FakeStreamOutlet.instances[-1].pushed[-1]
+        self.assertAlmostEqual(stamps[-1], 20.0)
+
+    def test_lsl_failure_does_not_stop_the_eeg_stream(self) -> None:
+        session = self.bridge.BrainAccessSession()
+        session.connect("BA MIDI 026")
+
+        with patch.dict(sys.modules, {"pylsl": None}):
+            started = session.start_stream(LSL_OPTIONS)
+
+        self.assertTrue(started["streaming"])
+        self.assertFalse(started["lsl"])
+        self.assertIn("pylsl", started["lslError"])
+
+    def test_lsl_rejects_mismatched_channel_labels(self) -> None:
+        session = self.bridge.BrainAccessSession()
+        session.connect("BA MIDI 026")
+
+        with patch.dict(sys.modules, {"pylsl": make_fake_pylsl([0.0])}):
+            started = session.start_stream({**LSL_OPTIONS, "channelLabels": ["O1"]})
+
+        self.assertFalse(started["lsl"])
+        self.assertIn("1 channel labels", started["lslError"])
 
     def test_connect_failure_destroys_temporary_manager(self) -> None:
         FakeEEGManager.connect_status = 5
@@ -234,8 +419,9 @@ class BrainAccessBridgeTests(unittest.TestCase):
         session.connect("BA MAXI 009")
         manager = FakeEEGManager.instances[-1]
 
-        self.assertEqual(session.start_stream(), {"streaming": True})
-        self.assertEqual(session.start_stream(), {"streaming": True})
+        started = {"streaming": True, "lsl": False, "lslError": None}
+        self.assertEqual(session.start_stream(), started)
+        self.assertEqual(session.start_stream(), started)
         self.assertEqual(manager.start_stream_calls, 1)
         self.assertEqual(manager.load_config_calls, 1)
         self.assertTrue(callable(manager.chunk_callback))
