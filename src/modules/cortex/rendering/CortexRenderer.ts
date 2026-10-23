@@ -4,7 +4,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 
-import type { CortexElectrode, CortexQuality } from "../models/cortex";
+import type { CortexElectrode } from "../models/cortex";
+
+import { DEFAULT_CORTEX_PALETTE, type CortexPalette } from "../models/palette";
 
 export interface CortexRendererOptions {
   electrodes: readonly CortexElectrode[];
@@ -13,11 +15,7 @@ export interface CortexRendererOptions {
 }
 
 const MAX_ELECTRODES = 64;
-const MODEL_PATHS: Record<CortexQuality, string> = {
-  low: "/modules/cortex/brain_low.glb",
-  medium: "/modules/cortex/brain_medium.glb",
-  high: "/modules/cortex/brain_high.glb",
-};
+const MODEL_PATH = "/modules/cortex/brain_low.glb";
 
 const vertexShader = `
 attribute vec4 eIndex;
@@ -48,6 +46,8 @@ void main() {
 
 const fragmentShader = `
 precision highp float;
+uniform vec3 uMediumColor;
+uniform vec3 uStrongColor;
 varying float vField;
 
 void main() {
@@ -55,8 +55,8 @@ void main() {
 
   // Instrument palette: resting tissue, phosphor trace, signal orange.
   vec3 base = vec3(0.16, 0.24, 0.23);
-  vec3 trace = vec3(0.56, 0.85, 0.75);
-  vec3 hot = vec3(0.97, 0.40, 0.03);
+  vec3 trace = uMediumColor;
+  vec3 hot = uStrongColor;
 
   vec3 color = q < 0.45
     ? mix(base, trace, q / 0.45)
@@ -105,6 +105,8 @@ export class CortexRenderer {
   private readonly targetActivity = new Float32Array(MAX_ELECTRODES);
 
   private readonly uniforms = {
+    uMediumColor: { value: new THREE.Color(DEFAULT_CORTEX_PALETTE.medium).convertLinearToSRGB() },
+    uStrongColor: { value: new THREE.Color(DEFAULT_CORTEX_PALETTE.strong).convertLinearToSRGB() },
     uActivity: { value: this.activity },
     uRadius: { value: 0.38 },
     uDeform: { value: 0.2 },
@@ -232,9 +234,9 @@ export class CortexRenderer {
     this.scheduleResize();
   }
 
-  async loadQuality(quality: CortexQuality): Promise<void> {
+  async loadModel(): Promise<void> {
     const generation = ++this.loadGeneration;
-    const gltf = await this.loader.loadAsync(MODEL_PATHS[quality]);
+    const gltf = await this.loader.loadAsync(MODEL_PATH);
 
     if (this.disposed || generation !== this.loadGeneration) {
       this.disposeObject(gltf.scene);
@@ -276,6 +278,11 @@ export class CortexRenderer {
     this.electrodes.slice(0, MAX_ELECTRODES).forEach((electrode, index) => {
       this.targetActivity[index] = Math.max(0, Math.min(1, activityByLabel[electrode.label] ?? 0));
     });
+  }
+
+  setPalette(palette: CortexPalette): void {
+    this.uniforms.uMediumColor.value.set(palette.medium).convertLinearToSRGB();
+    this.uniforms.uStrongColor.value.set(palette.strong).convertLinearToSRGB();
   }
 
   setHotspotRadius(radius: number): void {

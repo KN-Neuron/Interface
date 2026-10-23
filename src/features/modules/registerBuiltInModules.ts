@@ -1,3 +1,4 @@
+import { talonModuleDefinition } from "../../modules/talon/talonModuleDefinition";
 import { cortexModuleDefinition } from "../../modules/cortex/cortexModuleDefinition";
 
 import { minerModuleDefinition } from "../../modules/miner/minerModuleDefinition";
@@ -13,7 +14,12 @@ import { registerModuleDefinition } from "./registerModuleDefinition";
 import type { KNeuronModuleDefinition } from "./moduleDefinition";
 
 function createBuiltInModules(): KNeuronModuleDefinition[] {
-  return [cortexModuleDefinition, minerModuleDefinition, neuorrunModuleDefinition];
+  return [
+    cortexModuleDefinition,
+    minerModuleDefinition,
+    neuorrunModuleDefinition,
+    talonModuleDefinition,
+  ];
 }
 
 export function registerBuiltInModules(): void {

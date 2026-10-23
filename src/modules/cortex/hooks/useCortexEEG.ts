@@ -11,12 +11,6 @@ import type { CortexEEGState } from "../models/cortex";
 const EMPTY_PROCESSOR_SNAPSHOT: CortexProcessorSnapshot = {
   started: false,
   phase: "idle",
-  warmupProgress: 0,
-  fastCalibrationProgress: 0,
-  bandCalibrationProgress: 0,
-  bandWindowProgress: 0,
-  fastReady: false,
-  bandReady: false,
   fastActivityByLabel: {},
   bandActivityByLabel: {
     delta: {},
@@ -39,7 +33,6 @@ export interface CortexEEGSnapshot extends CortexProcessorSnapshot {
   lastSequence: number | null;
   retry: () => void;
   startExperience: () => void;
-  recalibrate: () => void;
   stopExperience: () => void;
 }
 
@@ -52,7 +45,7 @@ function getErrorMessage(error: unknown): string {
  *
  * Device ownership remains outside Cortex. This hook acquires the global raw
  * EEG stream and forwards it to a worker that runs the visualization-specific
- * processing/calibration, keeping the main thread free for rendering.
+ * amplitude processing, keeping the main thread free for rendering.
  */
 export function useCortexEEG(): CortexEEGSnapshot {
   const [retryGeneration, setRetryGeneration] = useState(0);
@@ -82,10 +75,6 @@ export function useCortexEEG(): CortexEEGSnapshot {
   }, []);
 
   const startExperience = useCallback(() => {
-    send({ type: "start" });
-  }, [send]);
-
-  const recalibrate = useCallback(() => {
     send({ type: "start" });
   }, [send]);
 
@@ -208,7 +197,6 @@ export function useCortexEEG(): CortexEEGSnapshot {
     lastSequence,
     retry,
     startExperience,
-    recalibrate,
     stopExperience,
     ...processorSnapshot,
   };

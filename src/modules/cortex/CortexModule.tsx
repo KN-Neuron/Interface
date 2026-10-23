@@ -1,37 +1,22 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { KNeuronModuleProps } from "../../features/modules/moduleDefinition";
 
 import { CortexViewport } from "./components/CortexViewport";
-import {
-  CORTEX_BAND_BASELINE_SECONDS,
-  CORTEX_BAND_WINDOW_SECONDS,
-  CORTEX_FAST_BASELINE_SECONDS,
-  CORTEX_WARMUP_SECONDS,
-} from "./eeg/CortexSignalProcessor";
 import { useCortexEEG } from "./hooks/useCortexEEG";
+import { DEFAULT_CORTEX_PALETTE, loadCortexPalette, saveCortexPalette } from "./models/palette";
 import { CortexRenderer } from "./rendering/CortexRenderer";
 import { cloneDefaultCortexElectrodes } from "./models/defaultElectrodeLayout";
 import type {
   CortexBand,
   CortexElectrode,
   CortexPosition,
-  CortexQuality,
   CortexVisualMode,
 } from "./models/cortex";
 
 import "./styles/cortex.css";
 
 const STORAGE_KEY = "kneuron.cortex.electrodes.v1";
-
-interface CalibrationView {
-  visible: boolean;
-  title: string;
-  hint: string;
-  progress: number;
-  elapsedSeconds: number;
-  totalSeconds: number;
-}
 
 function isPosition(value: unknown): value is CortexPosition {
   return (
@@ -85,105 +70,16 @@ function formatEEGState(state: string): string {
   return state.toUpperCase();
 }
 
-function getCalibrationView(
-  eeg: ReturnType<typeof useCortexEEG>,
-  visualMode: CortexVisualMode,
-): CalibrationView {
-  if (!eeg.started) {
-    return {
-      visible: false,
-      title: "",
-      hint: "",
-      progress: 0,
-      elapsedSeconds: 0,
-      totalSeconds: 0,
-    };
-  }
-
-  if (eeg.phase === "warmup") {
-    return {
-      visible: true,
-      title: "FILTER WARM-UP",
-      hint: "Keep still; filter output is not entering the baseline yet.",
-      progress: eeg.warmupProgress,
-      elapsedSeconds: eeg.warmupProgress * CORTEX_WARMUP_SECONDS,
-      totalSeconds: CORTEX_WARMUP_SECONDS,
-    };
-  }
-
-  if (visualMode === "fast" && !eeg.fastReady) {
-    return {
-      visible: true,
-      title: "CALIBRATING FAST BASELINE",
-      hint: "Keep still; the robust baseline freezes when calibration completes.",
-      progress: eeg.fastCalibrationProgress,
-      elapsedSeconds: eeg.fastCalibrationProgress * CORTEX_FAST_BASELINE_SECONDS,
-      totalSeconds: CORTEX_FAST_BASELINE_SECONDS,
-    };
-  }
-
-  if (visualMode === "bands" && !eeg.bandReady) {
-    if (eeg.bandWindowProgress < 1 && eeg.bandCalibrationProgress === 0) {
-      return {
-        visible: true,
-        title: "BUILDING BAND WINDOW",
-        hint: "Collecting the 2 s filtered window required by Welch PSD.",
-        progress: eeg.bandWindowProgress,
-        elapsedSeconds: eeg.bandWindowProgress * CORTEX_BAND_WINDOW_SECONDS,
-        totalSeconds: CORTEX_BAND_WINDOW_SECONDS,
-      };
-    }
-
-    return {
-      visible: true,
-      title: "BUILDING BAND BASELINE",
-      hint: "Keep still; the channel × band baseline freezes when complete.",
-      progress: eeg.bandCalibrationProgress,
-      elapsedSeconds: eeg.bandCalibrationProgress * CORTEX_BAND_BASELINE_SECONDS,
-      totalSeconds: CORTEX_BAND_BASELINE_SECONDS,
-    };
-  }
-
-  return {
-    visible: false,
-    title: "",
-    hint: "",
-    progress: 1,
-    elapsedSeconds: 0,
-    totalSeconds: 0,
-  };
-}
-
-function getProcessingStatus(
-  eeg: ReturnType<typeof useCortexEEG>,
-  visualMode: CortexVisualMode,
-): string {
-  if (!eeg.started) {
-    return "IDLE";
-  }
-
-  if (eeg.phase === "warmup") {
-    return "WARM-UP";
-  }
-
-  if (visualMode === "fast" && !eeg.fastReady) {
-    return "CALIBRATING";
-  }
-
-  if (visualMode === "bands" && !eeg.bandReady) {
-    return "CALIBRATING";
-  }
-
-  return "LIVE";
-}
-
 export function CortexModule(_props: KNeuronModuleProps) {
   const eeg = useCortexEEG();
   const rendererRef = useRef<CortexRenderer | null>(null);
 
+  const [palette, setPalette] = useState(loadCortexPalette);
+  const [signalRange, setSignalRange] = useState(50);
+  useEffect(() => saveCortexPalette(palette), [palette]);
+
   const [visualMode, setVisualMode] = useState<CortexVisualMode>("fast");
   const [selectedBand, setSelectedBand] = useState<CortexBand>("alpha");
-  const [quality, setQuality] = useState<CortexQuality>("medium");
   const [hotspotRadius, setHotspotRadius] = useState(0.38);
   const [deformation, setDeformation] = useState(0.2);
   const [editMode, setEditMode] = useState(false);
@@ -192,11 +88,19 @@ export function CortexModule(_props: KNeuronModuleProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [saveState, setSaveState] = useState<string | null>(null);
 
-  const activityByLabel =
+  const amplitudes =
     visualMode === "fast" ? eeg.fastActivityByLabel : eeg.bandActivityByLabel[selectedBand];
-
-  const calibration = getCalibrationView(eeg, visualMode);
-  const processingStatus = getProcessingStatus(eeg, visualMode);
+  const activityByLabel = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(amplitudes).map(([label, amplitude]) => [
+          label,
+          Math.max(0, Math.min(1, amplitude / signalRange)),
+        ]),
+      ),
+    [amplitudes, signalRange],
+  );
+  const processingStatus = eeg.started ? "LIVE" : "IDLE";
 
   const selectedElectrode = useMemo(
     () => (selectedIndex >= 0 ? (electrodes[selectedIndex] ?? null) : null),
@@ -282,7 +186,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
         <CortexViewport
           initialElectrodes={electrodes}
           activityByLabel={activityByLabel}
-          quality={quality}
+          palette={palette}
           hotspotRadius={hotspotRadius}
           deformation={deformation}
           editMode={editMode}
@@ -310,35 +214,12 @@ export function CortexModule(_props: KNeuronModuleProps) {
           {eeg.lastSequence !== null && <span>sample {eeg.lastSequence}</span>}
           {eeg.started && <span>{processingStatus}</span>}
         </div>
-
-        {calibration.visible && (
-          <div className="cortex-calibration-overlay">
-            <div className="cortex-calibration-card">
-              <h2>{calibration.title}</h2>
-              <p>{calibration.hint}</p>
-
-              <div className="cortex-calibration-track">
-                <div
-                  className="cortex-calibration-fill"
-                  style={{ width: `${Math.round(calibration.progress * 100)}%` }}
-                />
-              </div>
-
-              <div className="cortex-calibration-time">
-                <strong>{Math.round(calibration.progress * 100)}%</strong>
-                <span>
-                  {calibration.elapsedSeconds.toFixed(1)} / {calibration.totalSeconds.toFixed(1)} s
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <aside className="cortex-controls">
         <div className="cortex-controls__title">
           <h2>EEG Cortex</h2>
-          <p>BrainDance renderer + frozen-baseline Cortex processing.</p>
+          <p>Live EEG amplitude · color and shape respond immediately.</p>
         </div>
 
         <section className="cortex-control-section">
@@ -390,7 +271,7 @@ export function CortexModule(_props: KNeuronModuleProps) {
               onChange={(event) => setVisualMode(event.target.value as CortexVisualMode)}
             >
               <option value="fast">FAST · 200 ms RMS</option>
-              <option value="bands">BAND POWER · Welch</option>
+              <option value="bands">BAND AMPLITUDE · RMS</option>
             </select>
           </label>
 
@@ -420,34 +301,28 @@ export function CortexModule(_props: KNeuronModuleProps) {
               Start experience
             </button>
           ) : (
-            <div className="cortex-button-row">
-              <button
-                type="button"
-                className="cortex-button cortex-button--primary"
-                onClick={eeg.recalibrate}
-              >
-                Recalibrate
-              </button>
-              <button type="button" className="cortex-button" onClick={eeg.stopExperience}>
-                Stop
-              </button>
-            </div>
+            <button type="button" className="cortex-button" onClick={eeg.stopExperience}>
+              Stop
+            </button>
           )}
 
-          <div className="cortex-kv cortex-kv--spaced">
-            <span>FAST baseline</span>
-            <strong>
-              {eeg.fastReady ? "FROZEN" : `${Math.round(eeg.fastCalibrationProgress * 100)}%`}
-            </strong>
-          </div>
+          <label className="cortex-field">
+            <span>Sensitivity · full scale {signalRange} signal units RMS</span>
+            <input
+              type="range"
+              min="1"
+              max="200"
+              step="1"
+              value={signalRange}
+              onChange={(event) => setSignalRange(Number(event.target.value))}
+            />
+          </label>
+          <p className="cortex-processing-note">
+            Lower full scale makes the visualization more sensitive. The scale stays fixed until you
+            change it.
+          </p>
           <div className="cortex-kv">
-            <span>BAND baseline</span>
-            <strong>
-              {eeg.bandReady ? "FROZEN" : `${Math.round(eeg.bandCalibrationProgress * 100)}%`}
-            </strong>
-          </div>
-          <div className="cortex-kv">
-            <span>Signal quality</span>
+            <span>Sample validity</span>
             <strong>
               {averageSignalQuality === null ? "—" : `${Math.round(averageSignalQuality * 100)}%`}
             </strong>
@@ -458,13 +333,14 @@ export function CortexModule(_props: KNeuronModuleProps) {
           )}
 
           <p className="cortex-processing-note">
-            1–45 Hz causal filtering · 50 Hz notch when supported · frozen robust baseline ·
-            artifact quality is telemetry only.
+            1–45 Hz filtering · 50 Hz notch when supported · no baseline calibration or waiting.
+            Bands use up to 2 seconds of recent samples and respond as data arrives. Sample validity
+            checks finite values only; movement and poor contact can still affect the display.
           </p>
 
           {eeg.started && strongestChannels.length > 0 && (
             <div className="cortex-activity-list">
-              <span className="cortex-activity-list__title">Strongest activity</span>
+              <span className="cortex-activity-list__title">Strongest amplitude</span>
               {strongestChannels.map(([label, value]) => (
                 <div className="cortex-activity-row" key={label}>
                   <span>{label}</span>
@@ -484,17 +360,43 @@ export function CortexModule(_props: KNeuronModuleProps) {
         <section className="cortex-control-section">
           <div className="cortex-control-section__heading">Rendering</div>
 
-          <label className="cortex-field">
-            <span>Quality</span>
-            <select
-              value={quality}
-              onChange={(event) => setQuality(event.target.value as CortexQuality)}
-            >
-              <option value="low">LOW</option>
-              <option value="medium">MEDIUM</option>
-              <option value="high">HIGH</option>
-            </select>
-          </label>
+          {(["medium", "strong"] as const).map((level) => (
+            <div className="cortex-color-field" key={level}>
+              <label className="cortex-field">
+                <span>{level === "medium" ? "Medium signal color" : "Strong signal color"}</span>
+                <input
+                  type="color"
+                  value={palette[level]}
+                  onChange={(event) =>
+                    setPalette((current) => ({ ...current, [level]: event.target.value }))
+                  }
+                />
+              </label>
+              <label className="cortex-field">
+                <span>{level === "medium" ? "Medium HEX" : "Strong HEX"}</span>
+                <input
+                  type="text"
+                  key={palette[level]}
+                  defaultValue={palette[level]}
+                  maxLength={7}
+                  pattern="#[0-9a-fA-F]{6}"
+                  onBlur={(event) => {
+                    const color = event.target.value;
+                    if (/^#[0-9a-f]{6}$/i.test(color))
+                      setPalette((current) => ({ ...current, [level]: color }));
+                    else event.target.value = palette[level];
+                  }}
+                />
+              </label>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="cortex-button"
+            onClick={() => setPalette({ ...DEFAULT_CORTEX_PALETTE })}
+          >
+            Reset colors
+          </button>
 
           <label className="cortex-field">
             <span>Hotspot radius · {hotspotRadius.toFixed(2)}</span>

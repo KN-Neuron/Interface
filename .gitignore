@@ -84,3 +84,9 @@ desktop.ini
 # ---------------------------------------------------------
 
 .cache/
+
+# Local desktop helper build environment
+/.venv-desktop/
+
+# Local packaged builds and screenshots
+/artifacts/

@@ -1,12 +1,14 @@
 import { useEffect, useRef } from "react";
 
 import { CortexRenderer } from "../rendering/CortexRenderer";
-import type { CortexElectrode, CortexQuality } from "../models/cortex";
+import type { CortexElectrode } from "../models/cortex";
+
+import type { CortexPalette } from "../models/palette";
 
 interface CortexViewportProps {
+  palette: CortexPalette;
   initialElectrodes: readonly CortexElectrode[];
   activityByLabel: Readonly<Record<string, number>>;
-  quality: CortexQuality;
   hotspotRadius: number;
   deformation: number;
   editMode: boolean;
@@ -19,7 +21,7 @@ interface CortexViewportProps {
 export function CortexViewport({
   initialElectrodes,
   activityByLabel,
-  quality,
+  palette,
   hotspotRadius,
   deformation,
   editMode,
@@ -62,8 +64,12 @@ export function CortexViewport({
   }, [activityByLabel]);
 
   useEffect(() => {
-    void rendererRef.current?.loadQuality(quality);
-  }, [quality]);
+    void rendererRef.current?.loadModel();
+  }, []);
+
+  useEffect(() => {
+    rendererRef.current?.setPalette(palette);
+  }, [palette]);
 
   useEffect(() => {
     rendererRef.current?.setHotspotRadius(hotspotRadius);

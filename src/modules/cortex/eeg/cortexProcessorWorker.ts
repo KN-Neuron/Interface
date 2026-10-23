@@ -3,10 +3,9 @@
 /**
  * Runs CortexSignalProcessor off the main thread.
  *
- * Welch band power over 32 channels costs several milliseconds every ~100 ms.
- * On the main thread that lands inside animation frames and makes camera
- * rotation stutter, so the UI thread only forwards batches and receives
- * snapshots here.
+ * Filtering and band amplitude calculation run separately from animation,
+ * so camera motion stays smooth. The UI forwards batches and receives
+ * amplitude snapshots here.
  */
 
 import type { EEGConsumerBatch } from "../../../core/eeg";
@@ -79,7 +78,7 @@ scope.onmessage = (event: MessageEvent<CortexWorkerRequest>) => {
       }
 
       case "start":
-        processor?.startCalibration();
+        processor?.startExperience();
         publish();
         break;
 

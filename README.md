@@ -19,6 +19,37 @@ The current application contains three production modules:
 
 ---
 
+## Szybki start na Windows (VS Code)
+
+Ta wersja uruchamia natywną aplikację desktopową. Pobierz gałąź **`pre-docker-with-talon`**:
+
+```powershell
+git clone --branch pre-docker-with-talon https://github.com/KN-Neuron/Interface.git
+cd Interface
+```
+
+Możesz też pobrać [ZIP tej gałęzi](https://github.com/KN-Neuron/Interface/archive/refs/heads/pre-docker-with-talon.zip) i rozpakować go np. do `C:\Projects\Interface`.
+
+1. Otwórz folder projektu w VS Code na Windows, bez połączenia „WSL”.
+2. Otwórz terminal i wybierz profil **PowerShell**, nie Bash/Ubuntu.
+3. Z folderu zawierającego `setup-and-run.ps1` uruchom:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\setup-and-run.ps1
+   ```
+
+Skrypt sprawdzi pliki gier, przygotuje narzędzia i pomocniki EEG, a następnie otworzy osobne okno KNeuron. Pierwsze uruchomienie wymaga internetu i może długo potrwać. Zaakceptuj instalację narzędzi i monity UAC; jeżeli instalator poprosi o restart, uruchom ponownie Windows i powtórz polecenie. Wymagany jest Windows 10/11 x64 z 64-bitowym PowerShell i `winget` (App Installer).
+
+Po udanym przygotowaniu kolejne uruchomienia wykonuj z folderu projektu:
+
+```powershell
+npm.cmd run tauri:dev
+```
+
+Nie uruchamiaj `setup-and-run.sh` na Windows. Nie kopiuj `node_modules`, środowisk `.venv` ani binariów z WSL. Urządzenia Bluetooth obsługuj po stronie Windows; BrainLink Lite wymaga sparowania i portu COM. Docker nie jest potrzebny.
+
+---
+
 ## Current stack
 
 ### Desktop shell
@@ -192,14 +223,13 @@ Main features:
 - electrode visualization,
 - band filtering,
 - FAST activity,
-- delta / theta / alpha / beta / gamma band power,
-- calibration,
-- filter warm-up,
-- frozen baseline,
-- robust median/MAD normalization,
-- artifact telemetry,
+- delta / theta / alpha / beta / gamma filtered band amplitude,
+- immediate visualization without warm-up or baseline calibration,
+- fixed sensitivity and gentle signal-driven deformation,
+- saved medium and strong color choices (picker or HEX),
+- finite-sample and flat-channel warnings,
 - editable electrode positions,
-- LOW / MEDIUM / HIGH mesh quality,
+- lightweight brain mesh,
 - persistent electrode layout.
 
 ### Processing concept
@@ -209,16 +239,16 @@ raw EEG
    ↓
 filtering
    ↓
-feature extraction
+recent RMS amplitude
    ↓
-baseline normalization
+fixed sensitivity scale
    ↓
-relative activity
+color and deformation intensity
    ↓
 3D cortex visualization
 ```
 
-The baseline is intentionally frozen after calibration so the visualization continues to represent deviation from the initial session state rather than adapting the reference continuously.
+FAST uses up to 200 ms of recent filtered samples; frequency bands use causal band filters and up to 2 seconds of samples. Both respond as data arrives, without a calibration or waiting stage. Filter sections initialize from their first sample to reduce offset-related startup flashes, but real signal transients can still appear. Sensitivity is fixed until changed manually. Values use the adapter’s signal units; no microvolt conversion is assumed. Sample validity is not an electrode-contact or artifact-quality score.
 
 ---
 
@@ -371,9 +401,11 @@ The goal is that after cloning the repository, the development environment and P
 ### 1. Clone the repository
 
 ```powershell
-git clone <REPOSITORY_URL>
-cd KNeuron---Interface
+git clone --branch pre-docker-with-talon https://github.com/KN-Neuron/Interface.git
+cd Interface
 ```
+
+Extract or clone into a Windows folder such as `C:\Projects\Interface`. Run from **64-bit Windows PowerShell**, not WSL or a `\\wsl$` network path. Use a fresh checkout: do not copy Linux `node_modules`, Python virtual environments, or generated sidecar binaries. The command above selects `pre-docker-with-talon`, which contains the TALON and Cortex changes. In VS Code, open a local Windows window and select **Terminal > New Terminal > PowerShell**, not Bash/Ubuntu.
 
 ### 2. Run the bootstrap
 
@@ -381,15 +413,16 @@ cd KNeuron---Interface
 powershell -ExecutionPolicy Bypass -File .\setup-and-run.ps1
 ```
 
-The script checks or installs the required development environment and then builds the local sidecars.
+The script first verifies the TALON and Neuorrun manifests and game assets, plus the lightweight Cortex brain model. It then checks or installs the development environment, builds all three native Windows helpers using Python 3.12, and launches the desktop app. It does not use Docker or create an installer.
 
 It handles:
 
 ```text
-Node.js / npm
-Python
-Rust / Cargo
-Visual Studio C++ Build Tools
+Node.js >= 22.12 / npm
+Python 3.12 x64
+Rust / Cargo (Windows x64 MSVC)
+Visual Studio C++ Build Tools + Windows SDK
+Microsoft Edge WebView2 Runtime
 npm dependencies
 BrainAccess sidecar
 SSVEP classifier sidecar
@@ -399,7 +432,7 @@ BrainLink sidecar
 After setup it verifies that Tauri sidecar binaries exist and starts:
 
 ```powershell
-npm run tauri:dev
+npm.cmd run tauri:dev
 ```
 
 ### Prepare without launching
@@ -411,19 +444,23 @@ powershell -ExecutionPolicy Bypass -File .\setup-and-run.ps1 -NoLaunch
 Then start manually:
 
 ```powershell
-npm run tauri:dev
+npm.cmd run tauri:dev
 ```
 
 ### Windows requirements
 
 The bootstrap expects:
 
-- Windows 10/11,
+- Windows 10/11 x64 and 64-bit PowerShell (ARM64 is not validated),
 - internet access during first setup,
 - `winget` / Microsoft App Installer,
 - permission to install development tools.
 
 The first build can take significantly longer because Node packages, Rust dependencies and Python environments are created from scratch.
+
+Accept Windows installer/UAC prompts when requested. If a dependency installation requests a restart, restart Windows and rerun the same command. If `winget` is missing, install or update **App Installer** from Microsoft Store. The setup uses `npm.cmd` to avoid PowerShell blocking `npm.ps1`. Bluetooth pairing remains in Windows; the setup does not change Bluetooth settings.
+
+Validation: PowerShell syntax and isolated setup checks can be run from WSL using Windows PowerShell, but a complete clean-machine Windows installation and real-headset test are still required.
 
 ---
 
@@ -436,8 +473,8 @@ The included Linux bootstrap targets **Ubuntu/Debian-family distributions** and 
 ### 1. Clone the repository
 
 ```bash
-git clone <REPOSITORY_URL>
-cd KNeuron---Interface
+git clone https://github.com/KN-Neuron/Interface.git
+cd Interface
 ```
 
 ### 2. Make the bootstrap executable
@@ -779,7 +816,7 @@ They are part of the reproducible build definition.
 
 ### Why keep Cortex `.glb` files
 
-The LOW / MEDIUM / HIGH brain meshes are runtime application assets, not generated caches.
+The lightweight brain mesh (`brain_low.glb`) is a runtime application asset, not a generated cache.
 
 ### Why keep `public/neuorrun/Build/`
 
@@ -2809,7 +2846,7 @@ There should be one canonical production registration path for each type of exte
 - [x] shared EEG stream service
 - [x] Cortex 3D
 - [x] live EEG visualization
-- [x] calibration and baseline normalization
+- [x] immediate fixed-scale amplitude visualization
 - [x] TaaLON Miner
 - [x] FBCCA classifier sidecar
 - [x] Neuorrun Unity WebGL integration
@@ -2861,3 +2898,26 @@ See:
 
 Third-party software, assets, vendor SDKs and runtime components
 may be subject to separate license terms.
+
+## TALON module
+
+TALON is embedded as a Unity WebGL game alongside Neuorrun. Open **TALON**
+from the module launcher for free flight and rooftop SSVEP training. Its game
+assets are bundled in `public/talon/`; no separate game installation is required.
+
+Run the desktop application using the existing setup instructions above
+(`npm run tauri:dev` after setup). For rooftop EEG training, connect BrainAccess
+in **Device**, then choose **Użyj EEG z Interface** in TALON. TALON uses the
+existing EEG stream and native FBCCA classifier sidecar. Click testing needs no
+device; free flight supports manual controls and BCI test keys.
+
+Leaving the module unloads the game and releases its EEG subscription. Changing
+or disconnecting the device, losing focus, or cancelling a trial invalidates
+pending EEG decisions. Neuorrun and TALON share the Unity runtime loader so
+switching games loads the correct build.
+
+To replace TALON's assets with an uncompressed Unity WebGL build:
+
+```sh
+python unity-patch/prepare_webgl_build.py /path/to/WebGL public/talon --product-name TALON
+```

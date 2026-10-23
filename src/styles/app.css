@@ -1863,7 +1863,7 @@ h2 {
 /* ---------- Dashboard ---------- */
 
 .dashboard {
-  max-width: 1200px;
+  width: 100%;
 }
 
 .dashboard__header {
@@ -1931,7 +1931,7 @@ h2 {
 .module-grid {
   display: grid;
 
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, min(290px, 100%));
 
   gap: 22px;
 }

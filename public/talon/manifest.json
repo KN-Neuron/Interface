@@ -1,0 +1,12 @@
+{
+  "ready": true,
+  "loader": "Build/WebGL.loader.js",
+  "data": "Build/WebGL.data",
+  "framework": "Build/WebGL.framework.js",
+  "code": "Build/WebGL.wasm",
+  "symbols": null,
+  "streamingAssets": null,
+  "companyName": "KNeuron",
+  "productName": "TALON",
+  "productVersion": "1.0"
+}

@@ -16,7 +16,7 @@ function Ok([string]$Message) {
 function Refresh-Path {
     $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    $env:Path = "$machinePath;$userPath;$env:USERPROFILE\.cargo\bin"
+    $env:Path = "$env:Path;$machinePath;$userPath;$env:USERPROFILE\.cargo\bin"
 }
 
 function Has([string]$Name) {
@@ -66,45 +66,80 @@ function WingetInstall {
     Refresh-Path
 }
 
+function Test-Node {
+    if (-not (Has "node.exe") -or -not (Has "npm.cmd")) { return $false }
+    $version = & node.exe -p "process.versions.node"
+    return $LASTEXITCODE -eq 0 -and [version]$version -ge [version]"22.12.0"
+}
+
 function Ensure-Node {
-    if (-not (Has "node") -or -not (Has "npm")) {
+    if (-not (Test-Node)) {
         WingetInstall -Id "OpenJS.NodeJS.LTS" -ExtraArguments @("--silent")
     }
-
     Refresh-Path
-
-    if (-not (Has "node") -or -not (Has "npm")) {
-        throw "Node/npm was installed but is not visible yet. Open a new PowerShell window and rerun this script."
+    if (-not (Test-Node)) {
+        throw "Node >= 22.12 and npm are required. Update Node LTS, open a new PowerShell window, and rerun."
     }
+    Ok "Node $(node.exe --version), npm $(npm.cmd --version)"
+}
 
-    Ok "Node $(node --version), npm $(npm --version)"
+function Find-Python {
+    $candidates = @(
+        @{ Command = "py.exe"; Prefix = @("-3.12") },
+        @{ Command = "python.exe"; Prefix = @() }
+    )
+    foreach ($candidate in $candidates) {
+        if (-not (Has $candidate.Command)) { continue }
+        $prefix = $candidate.Prefix
+        try {
+            $path = & $candidate.Command @prefix -c "import sys,struct; assert sys.version_info[:2] == (3,12) and struct.calcsize('P') == 8; print(sys.executable)" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $path) { return ($path | Select-Object -Last 1).Trim() }
+        } catch { continue }
+    }
+    return $null
 }
 
 function Ensure-Python {
-    if (-not (Has "py") -and -not (Has "python")) {
-        WingetInstall -Id "Python.Python.3.12" -ExtraArguments @("--silent")
+    $script:PythonExe = Find-Python
+    if (-not $script:PythonExe) {
+        WingetInstall -Id "Python.Python.3.12" -ExtraArguments @("--silent", "--architecture", "x64")
+        Refresh-Path
+        $script:PythonExe = Find-Python
     }
-
-    Refresh-Path
-
-    if (-not (Has "py") -and -not (Has "python")) {
-        throw "Python was installed but is not visible yet. Open a new PowerShell window and rerun this script."
+    if (-not $script:PythonExe) {
+        throw "64-bit Python 3.12 is required. Open a new PowerShell window after installation and rerun."
     }
+    Ok "Python 3.12 x64: $script:PythonExe"
+}
 
-    if (Has "py") {
-        Ok "$(py --version)"
-    } else {
-        Ok "$(python --version)"
+function Have-WebView2 {
+    $client = "Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+    foreach ($key in @("HKLM:\SOFTWARE\WOW6432Node\$client", "HKLM:\SOFTWARE\$client", "HKCU:\Software\$client")) {
+        $version = Get-ItemPropertyValue -Path $key -Name "pv" -ErrorAction SilentlyContinue
+        if ($version -and [version]$version -gt [version]"0.0.0.0") { return $true }
     }
+    return $false
+}
+
+function Ensure-WebView2 {
+    if (-not (Have-WebView2)) {
+        WingetInstall -Id "Microsoft.EdgeWebView2Runtime" -ExtraArguments @("--silent")
+    }
+    if (-not (Have-WebView2)) {
+        throw "WebView2 Runtime was not detected. Install it from https://developer.microsoft.com/microsoft-edge/webview2/ and rerun."
+    }
+    Ok "Microsoft Edge WebView2 Runtime"
 }
 
 function Ensure-Rust {
     Refresh-Path
 
-    if (Has "cargo" -and Has "rustc") {
-        Ok "$(cargo --version)"
-        Ok "$(rustc --version)"
-        return
+    if ((Has "cargo") -and (Has "rustc")) {
+        $hostInfo = (& rustc -vV | Out-String)
+        if ($LASTEXITCODE -eq 0 -and $hostInfo -match "host: x86_64-pc-windows-msvc") {
+            Ok "$(cargo --version)"
+            return
+        }
     }
 
     if (-not (Has "rustup")) {
@@ -129,12 +164,12 @@ function Ensure-Rust {
     Run -Executable "rustup" -Arguments @(
         "toolchain",
         "install",
-        "stable-msvc"
+        "stable-x86_64-pc-windows-msvc"
     )
 
     Run -Executable "rustup" -Arguments @(
         "default",
-        "stable-msvc"
+        "stable-x86_64-pc-windows-msvc"
     )
 
     Refresh-Path
@@ -160,7 +195,9 @@ function Have-VCTools {
         -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
         -property installationPath 2>$null
 
-    return -not [string]::IsNullOrWhiteSpace(($result | Out-String))
+    $kits = "${env:ProgramFiles(x86)}\Windows Kits\10\Lib"
+    $sdk = @(Get-ChildItem -Path "$kits\*\um\x64\kernel32.lib" -ErrorAction SilentlyContinue)
+    return (-not [string]::IsNullOrWhiteSpace(($result | Out-String))) -and $sdk.Count -gt 0
 }
 
 function Ensure-VCTools {
@@ -190,31 +227,61 @@ function Build-Sidecar {
         [string]$Directory
     )
 
-    $buildScript = Join-Path $Directory "build.ps1"
-
-    if (-not (Test-Path $buildScript)) {
-        throw "Missing build script: $buildScript"
-    }
-
-    Step "Building $Name"
-
-    Push-Location $Directory
-
-    try {
-        & powershell.exe `
-            -NoProfile `
-            -ExecutionPolicy Bypass `
-            -File ".\build.ps1"
-
-        if ($LASTEXITCODE -ne 0) {
-            throw "$Name build failed."
+    $venv = Join-Path $Directory ".venv"
+    $python = Join-Path $venv "Scripts\python.exe"
+    if (Test-Path $venv) {
+        if (-not (Test-Path $python)) {
+            throw "Incompatible virtual environment at $venv. Use a fresh Windows checkout, or rename that environment and rerun."
         }
+        Run -Executable $python -Arguments @("-c", "import sys,struct; assert sys.platform == 'win32' and sys.version_info[:2] == (3,12) and struct.calcsize('P') == 8, 'Expected Windows Python 3.12 x64; rename this .venv and rerun'")
+    } else {
+        Run -Executable $script:PythonExe -Arguments @("-m", "venv", $venv)
     }
-    finally {
+    Step "Building $Name"
+    Run -Executable $python -Arguments @("-m", "pip", "install", "--upgrade", "pip")
+    Run -Executable $python -Arguments @("-m", "pip", "install", "-r", (Join-Path $Directory "requirements.txt"))
+    Push-Location $Directory
+    try {
+        if ($Name -eq "brainlink-bridge") {
+            Run -Executable $python -Arguments @("test_parser.py")
+        }
+        Run -Executable $python -Arguments @("-m", "PyInstaller", "--clean", "--noconfirm", "$Name.spec")
+        $built = Join-Path $Directory "dist\$Name.exe"
+        if (-not (Test-Path $built)) { throw "Expected helper was not built: $built" }
+        $destination = Join-Path $root "src-tauri\binaries"
+        New-Item -ItemType Directory -Force -Path $destination | Out-Null
+        Copy-Item -Force $built (Join-Path $destination "$Name-x86_64-pc-windows-msvc.exe")
+    } finally {
         Pop-Location
     }
+    Ok $Name
+}
 
-    Ok "$Name"
+function Test-GameAssets([string]$Game) {
+    $directory = Join-Path $root "public\$Game"
+    $manifestPath = Join-Path $directory "manifest.json"
+    if (-not (Test-Path $manifestPath)) { throw "Missing $Game manifest: download the complete repository, including public/$Game." }
+    $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
+    if (-not $manifest.ready) { throw "$Game game assets are not ready." }
+    foreach ($property in @("loader", "data", "framework", "code")) {
+        $relative = $manifest.$property
+        if ([string]::IsNullOrWhiteSpace($relative) -or $relative -notmatch '^[a-zA-Z0-9_./-]+$' -or $relative.Contains("..") -or $relative.StartsWith("/")) {
+            throw "Invalid $Game asset path: $relative"
+        }
+        $asset = Join-Path $directory $relative
+        if (-not (Test-Path $asset -PathType Leaf) -or (Get-Item $asset).Length -eq 0) {
+            throw "Missing or empty $Game asset: $asset. Download the complete repository."
+        }
+        $stream = [IO.File]::OpenRead($asset)
+        try {
+            $bytes = New-Object byte[] 128
+            $count = $stream.Read($bytes, 0, $bytes.Length)
+            if ([Text.Encoding]::ASCII.GetString($bytes, 0, $count).StartsWith("version https://git-lfs.github.com/spec/v1")) {
+                throw "Git LFS pointer found at $asset. Run git lfs pull to download the actual game assets."
+            }
+        } finally { $stream.Dispose() }
+    }
+    Ok "$Game WebGL assets"
 }
 
 $root = $PSScriptRoot
@@ -223,6 +290,13 @@ if ([string]::IsNullOrWhiteSpace($root)) {
     throw "Could not determine repository root."
 }
 
+if ($env:OS -ne "Windows_NT") { throw "Run this script in Windows PowerShell, not in WSL." }
+if (-not [Environment]::Is64BitProcess -or $env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
+    throw "This setup supports Windows x64 with 64-bit PowerShell. ARM64 and 32-bit Windows are not validated."
+}
+if ($root.StartsWith("\\")) {
+    throw "Extract or clone the project into a Windows folder such as C:\Projects\Interface, not a WSL/network path."
+}
 Set-Location $root
 
 Write-Host "========================================" -ForegroundColor DarkCyan
@@ -233,34 +307,40 @@ if (-not (Test-Path ".\package.json")) {
     throw "Put this script in the KNeuron repository root."
 }
 
+Step "Checking bundled assets"
+Test-GameAssets "talon"
+Test-GameAssets "neuorrun"
+if (-not (Test-Path ".\public\modules\cortex\brain_low.glb")) { throw "Missing Cortex brain_low.glb model." }
+
 Step "Checking/installing system dependencies"
 
 Refresh-Path
 Ensure-Node
 Ensure-Python
-Ensure-Rust
 Ensure-VCTools
+Ensure-Rust
+Ensure-WebView2
 
 Step "Installing JavaScript dependencies"
 
 if (Test-Path ".\package-lock.json") {
-    Run -Executable "npm" -Arguments @("ci")
+    Run -Executable "npm.cmd" -Arguments @("ci")
 } else {
-    Run -Executable "npm" -Arguments @("install")
+    Run -Executable "npm.cmd" -Arguments @("install")
 }
 
 Ok "Node dependencies"
 
 Build-Sidecar `
-    -Name "BrainAccess bridge" `
+    -Name "brainaccess-bridge" `
     -Directory (Join-Path $root "brainaccess-sidecar")
 
 Build-Sidecar `
-    -Name "SSVEP classifier" `
+    -Name "ssvep-classifier" `
     -Directory (Join-Path $root "ssvep-sidecar")
 
 Build-Sidecar `
-    -Name "BrainLink bridge" `
+    -Name "brainlink-bridge" `
     -Directory (Join-Path $root "brainlink-sidecar")
 
 Step "Verifying sidecars"
@@ -282,19 +362,13 @@ foreach ($binaryName in $expectedBinaries) {
     Ok "$binaryName ($sizeMb MB)"
 }
 
-if (-not (Test-Path ".\public\neuorrun\Build")) {
-    Write-Warning "Neuorrun WebGL build is missing. Keep public/neuorrun/Build in the repository or build it separately."
-} else {
-    Ok "Neuorrun WebGL build"
-}
-
 Write-Host "`nKNeuron setup completed successfully." -ForegroundColor Green
 
 if (-not $NoLaunch) {
     Step "Starting KNeuron"
-    Run -Executable "npm" -Arguments @("run", "tauri:dev")
+    Run -Executable "npm.cmd" -Arguments @("run", "tauri:dev")
 } else {
     Write-Host ""
     Write-Host "Run later with:"
-    Write-Host "  npm run tauri:dev"
+    Write-Host "  npm.cmd run tauri:dev"
 }
