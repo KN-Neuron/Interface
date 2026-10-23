@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - pre-docker-with-talon
 
   pull_request:
     branches:
@@ -25,7 +26,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -89,3 +90,13 @@ jobs:
       - name: Test SSVEP sidecar
         working-directory: ssvep-sidecar
         run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Build and smoke-test packaged Windows classifier
+        working-directory: ssvep-sidecar
+        run: |
+          python -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m PyInstaller --clean --noconfirm ssvep-classifier.spec
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python smoke_test.py dist/ssvep-classifier.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

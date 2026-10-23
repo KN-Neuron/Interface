@@ -259,6 +259,10 @@ function Build-Sidecar {
         Run -Executable $python -Arguments @("-m", "PyInstaller", "--clean", "--noconfirm", "$Name.spec")
         $built = Join-Path $Directory "dist\$Name.exe"
         if (-not (Test-Path $built)) { throw "Expected helper was not built: $built" }
+        if ($Name -eq "ssvep-classifier") {
+            Step "Testing the packaged SSVEP classifier"
+            Run -Executable $python -Arguments @((Join-Path $Directory "smoke_test.py"), $built)
+        }
         $destination = Join-Path $root "src-tauri\binaries"
         New-Item -ItemType Directory -Force -Path $destination | Out-Null
         Copy-Item -Force $built (Join-Path $destination "$Name-x86_64-pc-windows-msvc.exe")

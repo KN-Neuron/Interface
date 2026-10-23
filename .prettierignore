@@ -17,3 +17,5 @@ ssvep-sidecar/dist/
 
 **/.venv/
 **/venv/
+# Generated Unity assets
+public/talon/

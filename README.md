@@ -2921,3 +2921,11 @@ To replace TALON's assets with an uncompressed Unity WebGL build:
 ```sh
 python unity-patch/prepare_webgl_build.py /path/to/WebGL public/talon --product-name TALON
 ```
+
+### SSVEP classifier packaging check
+
+Windows setup runs `ssvep-sidecar/smoke_test.py` against the newly built executable before copying it into Tauri. The check requires protocol startup, ping, a correct synthetic six-channel FBCCA classification, and clean shutdown within 90 seconds. A failed executable stops setup and does not replace the previous helper. Windows CI performs the same build and executable check.
+
+The packaging specification includes a private source copy of SciPy's distribution infrastructure with safe optional documentation cleanup. This avoids `NameError: name 'obj' is not defined` during frozen imports; it does not modify the installed SciPy package or FBCCA calculations.
+
+After updating this branch, close KNeuron and rerun `powershell -ExecutionPolicy Bypass -File .\setup-and-run.ps1` to rebuild the helpers. Pulling source alone does not replace a previously generated executable.

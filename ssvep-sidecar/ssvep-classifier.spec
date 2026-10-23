@@ -1,6 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from PyInstaller.utils.hooks import collect_all
+from PyInstaller.config import CONF
+import sys
+sys.path.insert(0, SPECPATH)
+from build_support import patch_scipy_cleanup
 
 sklearn_datas, sklearn_bins, sklearn_hidden = collect_all("sklearn")
 scipy_datas, scipy_bins, scipy_hidden = collect_all("scipy")
@@ -16,7 +20,11 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
+    # Load this module from our private source copy, not the frozen importer.
+    module_collection_mode={"scipy.stats._distn_infrastructure": "py"},
 )
+
+a.datas = patch_scipy_cleanup(a.datas, CONF["workpath"])
 
 pyz = PYZ(a.pure)
 
