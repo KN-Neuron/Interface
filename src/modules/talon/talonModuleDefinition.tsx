@@ -9,7 +9,9 @@ export const talonModuleDefinition: KNeuronModuleDefinition = {
     version: "1.0.0",
     description: "Embedded Unity drone flight and SSVEP rooftop training.",
     category: "GAME",
-    appearance: {},
+    appearance: {
+    thumbnail: "/modules/talon/thumbnail.png",
+    },
     entryPoint: "/modules/talon",
     capabilities: { eeg: { required: false } },
   },
