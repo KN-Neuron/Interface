@@ -458,7 +458,7 @@ The bootstrap expects:
 
 The first build can take significantly longer because Node packages, Rust dependencies and Python environments are created from scratch.
 
-Accept Windows installer/UAC prompts when requested. If a dependency installation requests a restart, restart Windows and rerun the same command. If `winget` is missing, install or update **App Installer** from Microsoft Store. The setup uses `npm.cmd` to avoid PowerShell blocking `npm.ps1`. Bluetooth pairing remains in Windows; the setup does not change Bluetooth settings.
+Accept Windows installer/UAC prompts when requested. If a dependency installation requests a restart, restart Windows and rerun the same command. If `winget` is missing, install or update **App Installer** from Microsoft Store. The setup uses `npm.cmd` to avoid PowerShell blocking `npm.ps1`. Bluetooth pairing remains in Windows; the setup does not change Bluetooth settings. Existing helper `.venv` directories using another Python version or platform are automatically renamed to `.venv.backup-<id>` and recreated with Windows Python 3.12 x64. The previous environment is preserved.
 
 Validation: PowerShell syntax and isolated setup checks can be run from WSL using Windows PowerShell, but a complete clean-machine Windows installation and real-headset test are still required.
 

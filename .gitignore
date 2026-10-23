@@ -90,3 +90,6 @@ desktop.ini
 
 # Local packaged builds and screenshots
 /artifacts/
+
+# Preserved incompatible Python environments
+**/.venv.backup-*/

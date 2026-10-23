@@ -218,6 +218,14 @@ function Ensure-VCTools {
     Ok "Visual Studio C++ Build Tools"
 }
 
+function Test-DesktopPython([string]$Python) {
+    if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) { return $false }
+    try {
+        & $Python -c "import sys,struct; sys.exit(0 if sys.platform == 'win32' and sys.version_info[:2] == (3,12) and struct.calcsize('P') == 8 else 1)" *> $null
+        return $LASTEXITCODE -eq 0
+    } catch { return $false }
+}
+
 function Build-Sidecar {
     param(
         [Parameter(Mandatory = $true)]
@@ -229,13 +237,16 @@ function Build-Sidecar {
 
     $venv = Join-Path $Directory ".venv"
     $python = Join-Path $venv "Scripts\python.exe"
-    if (Test-Path $venv) {
-        if (-not (Test-Path $python)) {
-            throw "Incompatible virtual environment at $venv. Use a fresh Windows checkout, or rename that environment and rerun."
-        }
-        Run -Executable $python -Arguments @("-c", "import sys,struct; assert sys.platform == 'win32' and sys.version_info[:2] == (3,12) and struct.calcsize('P') == 8, 'Expected Windows Python 3.12 x64; rename this .venv and rerun'")
-    } else {
+    if ((Test-Path $venv) -and -not (Test-DesktopPython $python)) {
+        $backup = "$venv.backup-$([Guid]::NewGuid().ToString('N'))"
+        Write-Warning "Existing helper environment is incompatible with Windows Python 3.12 x64. Preserving it at $backup"
+        Move-Item -LiteralPath $venv -Destination $backup
+    }
+    if (-not (Test-Path $venv)) {
         Run -Executable $script:PythonExe -Arguments @("-m", "venv", $venv)
+    }
+    if (-not (Test-DesktopPython $python)) {
+        throw "Could not prepare Windows Python 3.12 x64 environment: $python"
     }
     Step "Building $Name"
     Run -Executable $python -Arguments @("-m", "pip", "install", "--upgrade", "pip")
