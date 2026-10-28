@@ -50,6 +50,73 @@ Nie uruchamiaj `setup-and-run.sh` na Windows. Nie kopiuj `node_modules`, środow
 
 ---
 
+## Windows i Linux — automatyczne przygotowanie i wybór mostka
+
+Jeśli masz już Node.js i npm, z katalogu projektu możesz użyć tego samego polecenia na obu systemach:
+
+```sh
+npm run setup
+```
+
+Polecenie wykrywa system i uruchamia `setup-and-run.ps1` na Windows albo
+`setup-and-run.sh` na Linuksie. Skrypty instalują zależności, budują natywne
+mostki BrainAccess, BrainLink i klasyfikator SSVEP, a następnie uruchamiają aplikację.
+Przygotowanie wymaga internetu i może poprosić o uprawnienia administratora do instalacji narzędzi.
+Na Windows używaj natywnego terminala Windows, bez WSL.
+
+Samo przygotowanie, bez otwierania aplikacji:
+
+```sh
+npm run setup -- --no-launch
+```
+
+Na Linuksie można też rozpocząć bez Node.js, bezpośrednio przez skrypt:
+
+```sh
+bash setup-and-run.sh
+```
+
+Na Windows bez Node.js użyj polecenia PowerShell z sekcji szybkiego startu powyżej.
+Po przygotowaniu uruchamianie jest wspólne dla obu systemów:
+
+```sh
+npm run tauri:dev
+```
+
+### Jak aplikacja dobiera mostek
+
+Nie wybierasz mostka w interfejsie. Aplikacja wywołuje logiczną nazwę
+`binaries/brainaccess-bridge`, a Tauri automatycznie dobiera plik dla systemu
+i architektury podczas budowania aplikacji. Na przykład dla x64:
+
+| System | Plik BrainAccess przygotowany przez skrypt |
+| --- | --- |
+| Windows | `src-tauri/binaries/brainaccess-bridge-x86_64-pc-windows-msvc.exe` |
+| Linux | `src-tauri/binaries/brainaccess-bridge-x86_64-unknown-linux-gnu` |
+
+Ten sam mechanizm dotyczy `brainlink-bridge` i `ssvep-classifier`.
+Mostki są dołączane do paczki aplikacji; użytkownik zainstalowanej wersji nie musi ich wybierać ani budować.
+Nie kopiuj mostków, `node_modules` ani `.venv` między systemami.
+Po zmianie kodu mostka uruchom ponownie przygotowanie na danym systemie.
+
+### Budowanie instalatora
+
+Po przygotowaniu środowiska na docelowym systemie:
+
+```sh
+npm run tauri:build
+```
+
+Windows używa instalatora NSIS. Linux automatycznie wczytuje
+`src-tauri/tauri.linux.conf.json` i buduje paczki DEB oraz AppImage.
+Wyniki znajdują się w `src-tauri/target/release/bundle/`.
+Buduj osobno na Windows i Linuksie — wykrywanie systemu nie konwertuje plików `.exe` na binaria linuksowe.
+
+Linux był używany do lokalnego połączenia z BA MIDI 026. Połączenie ze sprzętem
+na Windows wymaga osobnej weryfikacji; sama konfiguracja obu systemów nie zastępuje takiego testu.
+
+---
+
 ## Current stack
 
 ### Desktop shell
