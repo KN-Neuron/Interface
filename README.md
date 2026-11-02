@@ -88,6 +88,15 @@ neurostate-bridge (neurostate)
         └──→ NeuroStateService → BrainMetricsService → game modules, Neuorrun
 ```
 
+BrainLink has no raw EEG for neurostate, so the native games get the attention and meditation the headset computes itself, on the same outputs:
+
+```text
+BrainLink Lite → brainlink-bridge → BrainLinkAdapter
+        ├──→ BrainMetricsService → Neuorrun (WebGL)
+        └──→ NeuroStateService → neurostate-bridge (relay)
+                  └──→ JSON over TCP 127.0.0.1:13855 → Neurosniper, Neurorun (native)
+```
+
 The key architectural rule is:
 
 > Modules consume normalized application-level data and do not depend on hardware-native channel indexes, Bluetooth implementation details, COM ports, or vendor SDK internals.
@@ -377,17 +386,18 @@ The judgement is neurostate's own: the sidecar runs neurostate's filter and chan
 The native Unity builds of [Neurosniper](https://github.com/KN-Neuron/Neurosniper) and [Neurorun](https://github.com/KN-Neuron/Neurorun) run in their own windows. They read attention and relaxation from neurostate's JSON output on `127.0.0.1:13855` themselves; KNeuron:
 
 1. installs each game's latest GitHub release (`src-tauri/src/releases.rs`),
-2. runs neurostate on the connected BrainAccess cap (`NeuroStateService`),
+2. runs neurostate on the connected BrainAccess cap, or relays BrainLink's own metrics (`NeuroStateService`),
 3. starts and stops the game process (`src-tauri/src/games.rs`),
 4. shows the values the game receives.
 
 To play:
 
 ```text
-1. Device → connect your BrainAccess cap.
+1. Device → connect your BrainAccess cap or BrainLink Lite.
 2. Dashboard → Neurosniper or Neurorun → PLAY.
-3. For the first minute of good signal, sit still with your eyes open: neurostate
-   measures your resting baseline (BASELINE). After that the game uses your values.
+3. BrainAccess only: for the first minute of good signal, sit still with your eyes
+   open: neurostate measures your resting baseline (BASELINE). After that the game
+   uses your values. BrainLink's values are usable as soon as the signal is good.
 ```
 
 ### Releases

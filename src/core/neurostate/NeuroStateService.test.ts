@@ -4,11 +4,13 @@ import { BrainMetricsService } from "../brainMetrics/BrainMetricsService";
 import { DeviceManager } from "../devices/deviceManager";
 import { DeviceRegistry } from "../devices/deviceRegistry";
 import type { EEGStreamService } from "../eeg";
+import { FakeBrainMetricsAdapter } from "../../test/fakeBrainMetricsAdapter";
 import { FakeLslAdapter } from "../../test/fakeLslAdapter";
 
 import type {
   NeuroStateBrainStateListener,
   NeuroStateBridgeLike,
+  NeuroStateDeviceMetrics,
   NeuroStateExitListener,
   NeuroStateServiceListener,
 } from "./NeuroStateBridge";
@@ -27,6 +29,10 @@ class FakeBridge implements NeuroStateBridgeLike {
   readonly stop = vi.fn(async () => undefined);
 
   readonly startService = vi.fn(async (_stream: string, _profile: string) => undefined);
+
+  readonly startRelay = vi.fn(async () => undefined);
+
+  readonly pushMetrics = vi.fn(async (_metrics: Readonly<NeuroStateDeviceMetrics>) => undefined);
 
   subscribeService(listener: NeuroStateServiceListener): () => void {
     this.service = listener;
@@ -72,6 +78,33 @@ async function setup() {
 
   return { adapter, manager, eeg, release, bridges, service };
 }
+
+function setupRelay() {
+  const registry = new DeviceRegistry();
+  const adapter = new FakeBrainMetricsAdapter();
+  registry.register(adapter);
+
+  const manager = new DeviceManager(registry);
+  const eeg = { acquire: vi.fn() } as unknown as EEGStreamService;
+  const bridges: FakeBridge[] = [];
+  const service = new NeuroStateService(manager, eeg, () => {
+    const bridge = new FakeBridge();
+    bridges.push(bridge);
+    return bridge;
+  });
+
+  return { adapter, manager, eeg, bridges, service };
+}
+
+const METRICS = {
+  attention: 73,
+  meditation: 44,
+  poorSignalLevel: 0,
+  signalQualityPercent: 100,
+  eegPower: null,
+  blinkStrength: null,
+  timestampMs: 1,
+};
 
 describe("NeuroStateService", () => {
   it("asks for an EEG cap when no device is connected", async () => {
@@ -208,6 +241,71 @@ describe("NeuroStateService", () => {
 });
 
 describe("BrainMetricsService with neurostate", () => {
+  it("relays the metrics of a device without raw EEG", async () => {
+    const { service, manager, adapter, eeg, bridges } = setupRelay();
+    await manager.connect(adapter.info.id);
+    adapter.latest = METRICS;
+
+    service.acquire(vi.fn());
+    await service.start();
+
+    const bridge = bridges[0];
+    expect(bridge?.startRelay).toHaveBeenCalledTimes(1);
+    expect(bridge?.startService).not.toHaveBeenCalled();
+    expect(eeg.acquire).not.toHaveBeenCalled();
+    expect(service.getStatus()).toMatchObject({ deviceId: adapter.info.id, relay: true });
+    expect(bridge?.pushMetrics).toHaveBeenCalledWith(METRICS);
+
+    adapter.emit({ ...METRICS, attention: 20 });
+    expect(bridge?.pushMetrics).toHaveBeenLastCalledWith({ ...METRICS, attention: 20 });
+
+    bridge?.service?.({ status: "running", message: "Relaying.", outputs: [] });
+    expect(service.getStatus()).toMatchObject({ state: "running", relay: true });
+  });
+
+  it("starts relaying once a metrics device connects while a module waits", async () => {
+    const { service, manager, adapter, bridges } = setupRelay();
+
+    service.acquire(vi.fn());
+    await service.start();
+    expect(service.getStatus().state).toBe("unavailable");
+
+    await manager.connect(adapter.info.id);
+    await service.start();
+
+    expect(bridges).toHaveLength(1);
+    expect(bridges[0]?.startRelay).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops relaying when the device disconnects", async () => {
+    const { service, manager, adapter, bridges } = setupRelay();
+    await manager.connect(adapter.info.id);
+    service.acquire(vi.fn());
+    await service.start();
+
+    await manager.disconnect();
+    await service.start();
+
+    expect(bridges[0]?.stop).toHaveBeenCalledTimes(1);
+    expect(adapter.listenerCount).toBe(0);
+
+    adapter.emit(METRICS);
+    expect(bridges[0]?.pushMetrics).not.toHaveBeenCalled();
+    expect(service.getStatus().relay).toBeUndefined();
+  });
+
+  it("keeps serving device metrics directly to BrainMetricsService", async () => {
+    const { service, manager, adapter, bridges } = setupRelay();
+    await manager.connect(adapter.info.id);
+
+    const listener = vi.fn();
+    new BrainMetricsService(manager, service).acquire(listener);
+    adapter.emit(METRICS);
+
+    expect(listener).toHaveBeenCalledWith(METRICS);
+    expect(bridges).toHaveLength(0);
+  });
+
   it("serves neurostate values in the ThinkGear-style shape", async () => {
     const { service, manager, bridges } = await setup();
     const metrics = new BrainMetricsService(manager, service);

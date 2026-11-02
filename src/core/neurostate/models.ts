@@ -50,7 +50,7 @@ export type NeuroStateValuesListener = (values: Readonly<NeuroStateValues>) => v
  * Lifecycle of the neurostate service run by KNeuron.
  *
  * - idle: not running.
- * - unavailable: no connected device streams raw EEG for neurostate.
+ * - unavailable: no connected device can provide values for neurostate.
  * - starting: starting the EEG stream and the neurostate sidecar.
  * - waiting-for-stream: neurostate is looking for the cap's LSL stream.
  * - running: neurostate publishes values (also to the native games).
@@ -68,6 +68,12 @@ export interface NeuroStateStatus {
    * Device whose EEG neurostate reads, while it runs.
    */
   deviceId: string | null;
+
+  /**
+   * The values are the device's own metrics, relayed unchanged. There is no
+   * EEG processing, so no resting baseline to measure.
+   */
+  relay?: boolean;
 
   /**
    * Where apps can receive the values, e.g. "JSON over TCP on 127.0.0.1:13855".

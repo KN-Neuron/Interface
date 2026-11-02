@@ -424,7 +424,8 @@ export function ExternalGameModule({ game, thumbnail, onRequestClose }: External
             <Meter label="SIGNAL QUALITY" value={brain.values?.quality ?? null} dim={false} />
 
             <div className="game-panel__footer">
-              {brain.status.state === "running" || brain.status.state === "error" ? (
+              {(brain.status.state === "running" && !brain.status.relay) ||
+              brain.status.state === "error" ? (
                 <button
                   type="button"
                   className="game-button game-button--secondary"

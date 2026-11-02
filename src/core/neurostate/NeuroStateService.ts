@@ -8,7 +8,14 @@ import type { DeviceAdapter } from "../devices/contracts/DeviceAdapter";
 
 import { isLslStreamSource } from "../devices/contracts/LslStreamSource";
 
+import {
+  isBrainMetricsDeviceAdapter,
+  type BrainMetricsDeviceAdapter,
+} from "../devices/contracts/BrainMetricsDeviceAdapter";
+
 import { eegStreamService, type EEGStreamHandle, type EEGStreamService } from "../eeg";
+
+import type { BrainMetricsSnapshot } from "../brainMetrics/models";
 
 import { logger } from "../../lib/logger";
 
@@ -49,6 +56,9 @@ function errorMessage(error: unknown): string {
  * publishes them on its usual outputs, where the native games read them
  * (JSON over TCP on 127.0.0.1:13855). KNeuron modules read the same values
  * through this service or BrainMetricsService.
+ *
+ * Devices without raw EEG that compute metrics themselves (BrainLink) reach the
+ * native games through the same outputs: their metrics are relayed unchanged.
  *
  * Lifecycle:
  *
@@ -165,6 +175,15 @@ export class NeuroStateService {
       return;
     }
 
+    const relayed = this.findRelayedDevice();
+
+    if (relayed) {
+      await this.launch(relayed, true, async () => {
+        await this.openRelay(relayed);
+      });
+      return;
+    }
+
     const source = findLslSource(this.manager);
 
     if ("unavailable" in source) {
@@ -178,40 +197,95 @@ export class NeuroStateService {
 
     const { adapter } = source;
 
-    this.setStatus({
-      state: "starting",
-      message: `Starting neurostate on ${adapter.info.name}...`,
-      deviceId: adapter.info.id,
-      outputs: [],
-    });
-
-    try {
+    await this.launch(adapter, false, async () => {
       const { stream, handle } = await openLslStream(adapter, this.eeg);
 
       this.eegHandle = handle;
 
-      const bridge = this.createBridge();
-
-      this.bridge = bridge;
-      this.bridgeUnsubscribes = [
-        bridge.subscribeService((event) => {
-          this.handleServiceEvent(event);
-        }),
-        bridge.subscribeBrainState((values) => {
-          this.handleValues({
-            ...values,
-            receivedAtMs: Date.now(),
-          });
-        }),
-        bridge.subscribeExit((reason) => {
-          this.fail(`neurostate stopped unexpectedly: ${reason}`);
-        }),
-      ];
+      const bridge = this.openBridge();
 
       await bridge.start();
       await bridge.startService(stream.name, stream.neurostateProfile);
 
       logger.info("NeuroStateService", `neurostate started on "${stream.name}".`);
+    });
+  }
+
+  /**
+   * The connected device whose own metrics are relayed: one without raw EEG for
+   * neurostate to read.
+   */
+  private findRelayedDevice(): BrainMetricsDeviceAdapter | null {
+    const adapter = this.manager.getActiveAdapter();
+
+    return adapter &&
+      adapter.getStatus().state === "connected" &&
+      !this.supports(adapter) &&
+      isBrainMetricsDeviceAdapter(adapter)
+      ? adapter
+      : null;
+  }
+
+  private async openRelay(adapter: BrainMetricsDeviceAdapter): Promise<void> {
+    const bridge = this.openBridge();
+
+    await bridge.start();
+    await bridge.startRelay();
+
+    const push = (metrics: Readonly<BrainMetricsSnapshot>): void => {
+      bridge.pushMetrics(metrics).catch((error: unknown) => {
+        logger.warning("NeuroStateService", `Relaying metrics failed: ${errorMessage(error)}`);
+      });
+    };
+
+    this.bridgeUnsubscribes.push(adapter.subscribeBrainMetrics(push));
+
+    const latest = adapter.getLatestBrainMetrics();
+
+    if (latest) {
+      push(latest);
+    }
+
+    logger.info("NeuroStateService", `neurostate relays metrics from ${adapter.info.name}.`);
+  }
+
+  private openBridge(): NeuroStateBridgeLike {
+    const bridge = this.createBridge();
+
+    this.bridge = bridge;
+    this.bridgeUnsubscribes = [
+      bridge.subscribeService((event) => {
+        this.handleServiceEvent(event);
+      }),
+      bridge.subscribeBrainState((values) => {
+        this.handleValues({
+          ...values,
+          receivedAtMs: Date.now(),
+        });
+      }),
+      bridge.subscribeExit((reason) => {
+        this.fail(`neurostate stopped unexpectedly: ${reason}`);
+      }),
+    ];
+
+    return bridge;
+  }
+
+  private async launch(
+    adapter: DeviceAdapter,
+    relay: boolean,
+    open: () => Promise<void>,
+  ): Promise<void> {
+    this.setStatus({
+      state: "starting",
+      message: `Starting neurostate on ${adapter.info.name}...`,
+      deviceId: adapter.info.id,
+      outputs: [],
+      relay,
+    });
+
+    try {
+      await open();
     } catch (error) {
       await this.teardownUnsafe();
 
@@ -316,7 +390,7 @@ export class NeuroStateService {
     if (
       connected &&
       adapter &&
-      this.supports(adapter) &&
+      (this.supports(adapter) || isBrainMetricsDeviceAdapter(adapter)) &&
       this.valueListeners.size > 0 &&
       ["idle", "unavailable"].includes(this.status.state)
     ) {

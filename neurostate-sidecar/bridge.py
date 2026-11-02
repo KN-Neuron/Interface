@@ -6,6 +6,9 @@ attention and relaxation on neurostate's usual outputs: JSON over TCP (13855),
 WebSocket (13856), ThinkGear (13854) and LSL. The values are also reported back
 to KNeuron on stdout.
 
+Devices that compute attention themselves and provide no raw EEG (BrainLink) can
+use the same outputs: KNeuron pushes their metrics, which are relayed unchanged.
+
 Protocol:
 - stdin: one JSON request per line
 - stdout: one JSON response/event per line
@@ -15,8 +18,9 @@ It can also run neurostate's signal check, the headless equivalent of
 `neurostate check`: filtered signals, per-channel status (flat, noisy, mains
 hum), gaps and the spectrum over the back of the head, for fitting the cap.
 
-Requests: ping, start {stream, profile}, stop, start_check {stream, profile},
-stop_check, shutdown.
+Requests: ping, start {stream, profile}, start_relay,
+push_metrics {attention, meditation, poorSignalLevel}, stop,
+start_check {stream, profile}, stop_check, shutdown.
 Events: ready, service-status {status, message, outputs}, brain-state {state},
 check-state {state, message}, check-info {...}, check-signals {values},
 check-status {...}.
@@ -32,6 +36,7 @@ import re
 import sys
 import threading
 import time
+from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -47,7 +52,7 @@ from neurostate.outputs.thinkgear_server import poor_signal_level
 from neurostate.pipeline import OutputStartError, run_service
 from neurostate.preprocessing.channels import ChannelStatus, assess_channels
 from neurostate.preprocessing.filters import CausalFilter
-from neurostate.schema import BrainState
+from neurostate.schema import BrainState, State
 
 PROTOCOL_VERSION = 1
 
@@ -59,6 +64,11 @@ CHECK_PULL_S = 0.05
 CHECK_ASSESS_S = 0.5
 CHECK_SPECTRUM_S = 4.0
 CHECK_SPECTRUM_MAX_HZ = 60.0
+
+RELAY_SOURCE = "device metrics"
+
+# How long a device may stay silent before its last metrics count as no signal.
+RELAY_STALE_S = 3.0
 
 PROFILE_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -339,6 +349,52 @@ class CheckSession:
             source.close()
 
 
+def relayed_state(
+    t: float,
+    attention: float | None,
+    meditation: float | None,
+    poor_signal: float | None,
+) -> BrainState:
+    """Metrics in ThinkGear's scales as neurostate's values, with the same signal meaning."""
+    if poor_signal is None or poor_signal >= 200:
+        state, quality = State.NO_SIGNAL, 0.0
+    elif poor_signal > 0:
+        state, quality = State.POOR_SIGNAL, 100 * (1 - poor_signal / 200)
+    else:
+        state, quality = State.UNCALIBRATED, 100.0
+
+    def score(value: float | None) -> float:
+        usable = state is State.UNCALIBRATED and value is not None
+        return max(0.0, min(100.0, value)) if usable else 0.0
+
+    return BrainState(
+        t=t,
+        attention=score(attention),
+        relaxation=score(meditation),
+        quality=quality,
+        state=state,
+        calibrated=False,
+    )
+
+
+class MetricsRelay:
+    """Holds the metrics KNeuron last pushed, as an estimator for neurostate's outputs."""
+
+    def __init__(self) -> None:
+        self._latest: tuple[float, float | None, float | None, float | None] | None = None
+
+    def update(
+        self, attention: float | None, meditation: float | None, poor_signal: float | None
+    ) -> None:
+        self._latest = (pylsl.local_clock(), attention, meditation, poor_signal)
+
+    def __call__(self, t: float) -> BrainState:
+        latest = self._latest
+        if latest is None or t - latest[0] > RELAY_STALE_S:
+            return relayed_state(t, None, None, None)
+        return relayed_state(t, *latest[1:])
+
+
 class NeuroStateSession:
     """Runs at most one neurostate service at a time, on a background thread."""
 
@@ -349,12 +405,29 @@ class NeuroStateSession:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._stop_event: asyncio.Event | None = None
         self._stream: str | None = None
+        self._relay: MetricsRelay | None = None
 
     @property
     def running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 
     def start(self, stream: str, config: Config) -> dict[str, Any]:
+        return self._launch(stream, lambda: self._serve(stream, config))
+
+    def start_relay(self, config: Config) -> dict[str, Any]:
+        return self._launch(RELAY_SOURCE, lambda: self._serve_relay(config))
+
+    def push_metrics(
+        self, attention: float | None, meditation: float | None, poor_signal: float | None
+    ) -> None:
+        relay = self._relay
+        if relay is None:
+            raise RuntimeError("neurostate is not relaying device metrics.")
+        relay.update(attention, meditation, poor_signal)
+
+    def _launch(
+        self, stream: str, serve: Callable[[], Coroutine[Any, Any, None]]
+    ) -> dict[str, Any]:
         with self._lock:
             if self.running:
                 if self._stream == stream:
@@ -368,8 +441,9 @@ class NeuroStateSession:
             self._loop = None
             self._stop_event = None
             self._stream = stream
+            self._relay = MetricsRelay() if stream == RELAY_SOURCE else None
             self._thread = threading.Thread(
-                target=self._run, args=(stream, config), name="neurostate", daemon=True
+                target=self._run, args=(serve,), name="neurostate", daemon=True
             )
             self._thread.start()
 
@@ -396,14 +470,15 @@ class NeuroStateSession:
         with self._lock:
             self._thread = None
             self._stream = None
+            self._relay = None
             self._loop = None
             self._stop_event = None
 
         return {"running": False}
 
-    def _run(self, stream: str, config: Config) -> None:
+    def _run(self, serve: Callable[[], Coroutine[Any, Any, None]]) -> None:
         try:
-            asyncio.run(self._serve(stream, config))
+            asyncio.run(serve())
             emit(status_event("stopped", "neurostate stopped."))
         except OutputStartError as exc:
             emit(status_event("error", str(exc)))
@@ -434,21 +509,38 @@ class NeuroStateSession:
 
             estimator = EegEstimator(source, montage, config)
 
-            # Report every update to KNeuron as well as to neurostate's own outputs.
-            def estimate(t: float) -> BrainState:
-                state = estimator(t)
-                emit(brain_state_event(state))
-                return state
-
-            def started(outputs: list[Any]) -> None:
-                descriptions = [output.description for output in outputs]
-                for description in descriptions:
-                    log(f"Publishing on {description}")
-                emit(status_event("running", f'Reading "{stream}".', descriptions))
-
-            await run_service(config.outputs, estimate, on_started=started, stop=self._stop_event)
+            await self._publish(config, estimator, f'Reading "{stream}".')
         finally:
             source.close()
+
+    async def _serve_relay(self, config: Config) -> None:
+        self._loop = asyncio.get_running_loop()
+        self._stop_event = asyncio.Event()
+        if self._stop_requested.is_set():
+            return
+
+        relay = self._relay
+        if relay is None:
+            raise RuntimeError("neurostate is not relaying device metrics.")
+
+        await self._publish(config, relay, "Relaying the device's own metrics.")
+
+    async def _publish(
+        self, config: Config, estimator: Callable[[float], BrainState], message: str
+    ) -> None:
+        # Report every update to KNeuron as well as to neurostate's own outputs.
+        def estimate(t: float) -> BrainState:
+            state = estimator(t)
+            emit(brain_state_event(state))
+            return state
+
+        def started(outputs: list[Any]) -> None:
+            descriptions = [output.description for output in outputs]
+            for description in descriptions:
+                log(f"Publishing on {description}")
+            emit(status_event("running", message, descriptions))
+
+        await run_service(config.outputs, estimate, on_started=started, stop=self._stop_event)
 
 
 SESSION = NeuroStateSession()
@@ -482,6 +574,17 @@ def handle_request(request: dict[str, Any]) -> bool:
 
         elif command == "start":
             response_ok(request_id, SESSION.start(*stream_and_profile(payload, command)))
+
+        elif command == "start_relay":
+            response_ok(request_id, SESSION.start_relay(load_profile("standard")))
+
+        elif command == "push_metrics":
+            SESSION.push_metrics(
+                payload.get("attention"),
+                payload.get("meditation"),
+                payload.get("poorSignalLevel"),
+            )
+            response_ok(request_id)
 
         elif command == "stop":
             response_ok(request_id, SESSION.stop())
