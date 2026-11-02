@@ -222,6 +222,81 @@ class NeuroStateBridgeTests(unittest.TestCase):
         self.assertIn(update["state"]["state"], {"calibrating", "poor_signal", "no_signal"})
         self.assertFalse(session.running)
 
+    def test_relayed_state_maps_thinkgear_signal_levels(self) -> None:
+        usable = self.bridge.relayed_state(1.0, 73, 44, 0)
+        self.assertEqual(usable.state, State.UNCALIBRATED)
+        self.assertEqual((usable.attention, usable.relaxation, usable.quality), (73, 44, 100))
+        self.assertFalse(usable.calibrated)
+
+        poor = self.bridge.relayed_state(1.0, 73, 44, 50)
+        self.assertEqual(poor.state, State.POOR_SIGNAL)
+        self.assertEqual((poor.attention, poor.relaxation, poor.quality), (0, 0, 75))
+
+        for level in (200, None):
+            absent = self.bridge.relayed_state(1.0, 73, 44, level)
+            self.assertEqual(absent.state, State.NO_SIGNAL)
+            self.assertEqual(absent.quality, 0)
+
+        # eSense values may not have arrived yet, or be out of range.
+        partial = self.bridge.relayed_state(1.0, None, 150, 0)
+        self.assertEqual((partial.attention, partial.relaxation), (0, 100))
+
+    def test_relay_reports_no_signal_without_recent_metrics(self) -> None:
+        relay = self.bridge.MetricsRelay()
+        now = self.bridge.pylsl.local_clock()
+        self.assertEqual(relay(now).state, State.NO_SIGNAL)
+
+        relay.update(73, 44, 0)
+        now = self.bridge.pylsl.local_clock()
+        self.assertEqual(relay(now).state, State.UNCALIBRATED)
+        self.assertEqual(relay(now + self.bridge.RELAY_STALE_S + 1).state, State.NO_SIGNAL)
+
+    def test_push_metrics_requires_a_running_relay(self) -> None:
+        session = self.bridge.NeuroStateSession()
+        with self.assertRaisesRegex(RuntimeError, "not relaying"):
+            session.push_metrics(73, 44, 0)
+
+    def test_relay_publishes_pushed_metrics_on_the_json_output(self) -> None:
+        config = Config.model_validate(
+            {
+                "outputs": {
+                    "json_tcp": {"port": 0},
+                    "lsl": {"enabled": False},
+                    "websocket": {"enabled": False},
+                    "thinkgear": {"enabled": False},
+                }
+            }
+        )
+
+        session = self.bridge.NeuroStateSession()
+        events = Events()
+        with patch.object(self.bridge, "emit", side_effect=events.append):
+            self.assertTrue(session.start_relay(config)["started"])
+            self.assertFalse(session.start_relay(config)["started"])
+            with self.assertRaisesRegex(RuntimeError, "already running"):
+                session.start("Some Cap", config)
+
+            running = events.wait_for(lambda m: m.get("status") == "running", 10)
+            session.push_metrics(73, 44, 0)
+
+            host, port = running["outputs"][0].rsplit(" ", 1)[-1].rsplit(":", 1)
+            with socket.create_connection((host, int(port)), timeout=5) as client:
+                lines = client.makefile()
+                message = json.loads(lines.readline())
+                while message["state"] == "no_signal":
+                    message = json.loads(lines.readline())
+
+            update = events.wait_for(
+                lambda m: m["type"] == "brain-state" and m["state"]["attention"] == 73, 5
+            )
+            self.assertEqual(session.stop(), {"running": False})
+            events.wait_for(lambda m: m.get("status") == "stopped", 10)
+
+        self.assertEqual(message["attention"], 73)
+        self.assertEqual(message["relaxation"], 44)
+        self.assertEqual(message["state"], "uncalibrated")
+        self.assertEqual(update["state"]["poorSignalLevel"], 0)
+
     def start_mock(self, **settings) -> MockConfig:
         mock = MockConfig(stream_name=f"kneuron-test-{uuid.uuid4().hex[:8]}", **settings)
         stop_mock = threading.Event()

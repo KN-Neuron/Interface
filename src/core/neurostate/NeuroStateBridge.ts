@@ -2,6 +2,8 @@ import { Command, type Child } from "@tauri-apps/plugin-shell";
 
 import { logger } from "../../lib/logger";
 
+import type { BrainMetricsSnapshot } from "../brainMetrics/models";
+
 import type {
   NeuroStateValues,
   SignalCheckInfo,
@@ -25,6 +27,14 @@ export type NeuroStateBrainStateListener = (
 ) => void;
 
 export type NeuroStateExitListener = (reason: string) => void;
+
+/**
+ * Metrics a device computes itself, relayed to neurostate's outputs.
+ */
+export type NeuroStateDeviceMetrics = Pick<
+  BrainMetricsSnapshot,
+  "attention" | "meditation" | "poorSignalLevel"
+>;
 
 /**
  * Events of the sidecar's signal check (neurostate's `check`, without its window).
@@ -71,6 +81,13 @@ export interface NeuroStateBridgeLike {
    * Runs neurostate on an LSL EEG stream with a cap profile, e.g. "brainaccess-midi".
    */
   startService(stream: string, profile: string): Promise<void>;
+
+  /**
+   * Publishes pushed device metrics on neurostate's outputs, without any EEG.
+   */
+  startRelay(): Promise<void>;
+
+  pushMetrics(metrics: Readonly<NeuroStateDeviceMetrics>): Promise<void>;
 
   subscribeService(listener: NeuroStateServiceListener): () => void;
 
@@ -203,6 +220,18 @@ export class NeuroStateBridge implements NeuroStateBridgeLike, SignalCheckBridge
     await this.request("start", {
       stream,
       profile,
+    });
+  }
+
+  async startRelay(): Promise<void> {
+    await this.request("start_relay");
+  }
+
+  async pushMetrics(metrics: Readonly<NeuroStateDeviceMetrics>): Promise<void> {
+    await this.request("push_metrics", {
+      attention: metrics.attention,
+      meditation: metrics.meditation,
+      poorSignalLevel: metrics.poorSignalLevel,
     });
   }
 
