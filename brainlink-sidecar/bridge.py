@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import socket
 import sys
 import threading
 import time
@@ -18,6 +20,10 @@ PROTOCOL_VERSION = 1
 BAUD_RATE = 57600
 PROBE_SECONDS = 2.5
 READ_TIMEOUT_SECONDS = 0.20
+RFCOMM_CONNECT_TIMEOUT_SECONDS = 15.0
+DEFAULT_RFCOMM_CHANNEL = 1
+
+_BLUETOOTH_ADDRESS = re.compile(r"[0-9A-F]{2}(?::[0-9A-F]{2}){5}")
 
 _stdout_lock = threading.Lock()
 
@@ -48,9 +54,55 @@ class PortInfo:
         }
 
 
+def normalize_bluetooth_address(address: str) -> str:
+    normalized = address.strip().replace("-", ":").upper()
+    if not _BLUETOOTH_ADDRESS.fullmatch(normalized):
+        raise ValueError(f"Invalid Bluetooth MAC address: {address!r}")
+    return normalized
+
+
+class RfcommTransport:
+    """Bluetooth RFCOMM socket exposing the subset of serial.Serial the session uses."""
+
+    def __init__(self, address: str, channel: int) -> None:
+        if not hasattr(socket, "AF_BLUETOOTH") or not hasattr(socket, "BTPROTO_RFCOMM"):
+            raise RuntimeError("This Python build has no Bluetooth RFCOMM socket support.")
+
+        self.port = address
+        self.is_open = False
+        self._socket = socket.socket(
+            socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM
+        )
+
+        try:
+            self._socket.settimeout(RFCOMM_CONNECT_TIMEOUT_SECONDS)
+            self._socket.connect((address, channel))
+            self._socket.settimeout(READ_TIMEOUT_SECONDS)
+        except Exception:
+            self._socket.close()
+            raise
+
+        self.is_open = True
+
+    def read(self, size: int) -> bytes:
+        try:
+            chunk = self._socket.recv(size)
+        except TimeoutError:
+            return b""
+
+        # Unlike a serial read timeout, an empty recv means the headset hung up.
+        if not chunk:
+            raise ConnectionError("Bluetooth RFCOMM link closed by the device.")
+        return chunk
+
+    def close(self) -> None:
+        self.is_open = False
+        self._socket.close()
+
+
 class BrainLinkSession:
     def __init__(self) -> None:
-        self._serial: serial.Serial | None = None
+        self._serial: serial.Serial | RfcommTransport | None = None
         self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
@@ -71,14 +123,20 @@ class BrainLinkSession:
             )
         return ports
 
-    def connect(self, requested_port: str | None = None) -> dict[str, Any]:
+    def connect(
+        self,
+        requested_port: str | None = None,
+        bluetooth_address: str | None = None,
+    ) -> dict[str, Any]:
         with self._lock:
             if self._serial and self._serial.is_open:
                 return self._connection_info()
 
         override_port = requested_port or os.environ.get("KNEURON_BRAINLINK_PORT")
 
-        if override_port:
+        if bluetooth_address:
+            serial_port, parser = self._open_and_verify_rfcomm(bluetooth_address)
+        elif override_port:
             serial_port, parser = self._open_and_verify_port(override_port)
         else:
             serial_port, parser = self._autodetect_port()
@@ -139,11 +197,12 @@ class BrainLinkSession:
             "baudRate": BAUD_RATE,
         }
 
-    def _autodetect_port(self) -> tuple[serial.Serial, ThinkGearParser]:
+    def _autodetect_port(self) -> tuple[serial.Serial | RfcommTransport, ThinkGearParser]:
         ports = self.scan_ports()
         if not ports:
             raise RuntimeError(
-                "No serial ports are available. Pair BrainLink Lite in Windows Bluetooth first."
+                "No serial ports are available. Pair BrainLink Lite in your system's Bluetooth "
+                "settings first. On Linux, also enter its Bluetooth MAC address."
             )
 
         def priority(port: PortInfo) -> tuple[int, str]:
@@ -172,17 +231,42 @@ class BrainLinkSession:
         details = "; ".join(failures[:8])
         raise RuntimeError(
             "BrainLink Lite was not detected on any serial port at 57600 baud. "
-            "Make sure it is powered on, paired with Windows, and not connected to another device. "
+            "Make sure it is powered on, paired with this computer, "
+            "and not connected to another device. "
             f"Probe results: {details}"
         )
 
-    def _open_and_verify_port(self, port_name: str) -> tuple[serial.Serial, ThinkGearParser]:
+    def _open_and_verify_port(
+        self, port_name: str
+    ) -> tuple[serial.Serial | RfcommTransport, ThinkGearParser]:
         serial_port = serial.Serial(
             port=port_name,
             baudrate=BAUD_RATE,
             timeout=READ_TIMEOUT_SECONDS,
             write_timeout=1.0,
         )
+        return self._verify_stream(serial_port)
+
+    def _open_and_verify_rfcomm(
+        self, address: str
+    ) -> tuple[serial.Serial | RfcommTransport, ThinkGearParser]:
+        normalized = normalize_bluetooth_address(address)
+        channel = int(os.environ.get("KNEURON_BRAINLINK_RFCOMM_CHANNEL", DEFAULT_RFCOMM_CHANNEL))
+
+        try:
+            transport = RfcommTransport(normalized, channel)
+        except OSError as error:
+            raise RuntimeError(
+                f"Could not open a Bluetooth RFCOMM link to {normalized} on channel {channel}. "
+                "Make sure it is powered on, paired with this computer, and not connected "
+                f"to another device. ({error_text(error)})"
+            ) from error
+
+        return self._verify_stream(transport)
+
+    def _verify_stream(
+        self, serial_port: serial.Serial | RfcommTransport
+    ) -> tuple[serial.Serial | RfcommTransport, ThinkGearParser]:
         parser = ThinkGearParser()
 
         deadline = time.monotonic() + PROBE_SECONDS
@@ -356,7 +440,10 @@ def handle_request(request: dict[str, Any]) -> bool:
             requested_port = payload.get("port")
             if requested_port is not None:
                 requested_port = str(requested_port)
-            respond(request_id, session.connect(requested_port))
+            bluetooth_address = payload.get("bluetoothAddress")
+            if bluetooth_address is not None:
+                bluetooth_address = str(bluetooth_address)
+            respond(request_id, session.connect(requested_port, bluetooth_address))
             return True
 
         if command == "get_metrics":

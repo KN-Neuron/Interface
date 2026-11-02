@@ -9,7 +9,8 @@ import { useDevice } from "./useDevice";
  * Every registered adapter is rendered through the same interface.
  */
 export function DevicePage() {
-  const { snapshot, connect, disconnect, getStatusForDevice } = useDevice();
+  const { snapshot, connect, disconnect, getStatusForDevice, getBluetoothAddressForDevice } =
+    useDevice();
 
   return (
     <section className="device-page">
@@ -55,8 +56,9 @@ export function DevicePage() {
                   active={active}
                   busy={snapshot.busy}
                   status={getStatusForDevice(device.id)}
-                  onConnect={() => {
-                    void connect(device.id);
+                  savedBluetoothAddress={getBluetoothAddressForDevice(device.id)}
+                  onConnect={(bluetoothAddress) => {
+                    void connect(device.id, bluetoothAddress);
                   }}
                   onDisconnect={() => {
                     void disconnect();

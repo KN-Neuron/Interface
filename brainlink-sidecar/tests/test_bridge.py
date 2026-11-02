@@ -41,6 +41,31 @@ class FakeSerialPort:
         self.is_open = False
 
 
+class FakeSocket:
+    def __init__(self, reads=None, connect_error=None) -> None:
+        self.reads = list(reads or [])
+        self.connect_error = connect_error
+        self.connected_to = None
+        self.closed = False
+
+    def settimeout(self, _timeout) -> None:
+        pass
+
+    def connect(self, address) -> None:
+        if self.connect_error:
+            raise self.connect_error
+        self.connected_to = address
+
+    def recv(self, _size: int) -> bytes:
+        item = self.reads.pop(0)
+        if isinstance(item, BaseException):
+            raise item
+        return item
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class FakeThread:
     def __init__(self, *, target, args, name, daemon) -> None:
         self.target = target
@@ -102,6 +127,7 @@ class BrainLinkBridgeTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("KNEURON_BRAINLINK_PORT", None)
+        os.environ.pop("KNEURON_BRAINLINK_RFCOMM_CHANNEL", None)
 
     def test_scan_ports_normalizes_pyserial_metadata(self) -> None:
         self.list_ports_mod.comports = lambda: [
@@ -205,6 +231,124 @@ class BrainLinkBridgeTests(unittest.TestCase):
         session._open_and_verify_port.assert_called_once_with("COM12")
         session.disconnect()
 
+    def test_normalize_bluetooth_address(self) -> None:
+        self.assertEqual(
+            self.bridge.normalize_bluetooth_address(" 42-22-22-25-ac-97 "),
+            "42:22:22:25:AC:97",
+        )
+        for invalid in ("", "42:22:22:25:AC", "42:22:22:25:AC:9G", "/dev/rfcomm0"):
+            with self.assertRaisesRegex(ValueError, "Invalid Bluetooth MAC address"):
+                self.bridge.normalize_bluetooth_address(invalid)
+
+    def test_connect_with_bluetooth_address_opens_rfcomm_socket(self) -> None:
+        from thinkgear import build_packet
+
+        fake = FakeSocket([build_packet([0x04, 66])])
+        session = self.bridge.BrainLinkSession()
+        session.scan_ports = Mock()
+
+        with (
+            patch.object(self.bridge.socket, "socket", return_value=fake),
+            patch.object(self.bridge.threading, "Thread", FakeThread),
+        ):
+            info = session.connect(None, "42:22:22:25:ac:97")
+
+        self.assertEqual(fake.connected_to, ("42:22:22:25:AC:97", 1))
+        self.assertEqual(info["port"], "42:22:22:25:AC:97")
+        session.scan_ports.assert_not_called()
+
+        session.disconnect()
+        self.assertTrue(fake.closed)
+
+    def test_bluetooth_address_takes_priority_over_port_override(self) -> None:
+        os.environ["KNEURON_BRAINLINK_PORT"] = "COM12"
+        session = self.bridge.BrainLinkSession()
+        session._open_and_verify_port = Mock()
+        session._open_and_verify_rfcomm = Mock(
+            return_value=(FakeSerialPort("42:22:22:25:AC:97"), self.bridge.ThinkGearParser())
+        )
+
+        with patch.object(self.bridge.threading, "Thread", FakeThread):
+            session.connect(None, "42:22:22:25:AC:97")
+
+        session._open_and_verify_port.assert_not_called()
+        session.disconnect()
+
+    def test_rfcomm_channel_can_be_overridden(self) -> None:
+        from thinkgear import build_packet
+
+        os.environ["KNEURON_BRAINLINK_RFCOMM_CHANNEL"] = "3"
+        fake = FakeSocket([build_packet([0x04, 66])])
+
+        with patch.object(self.bridge.socket, "socket", return_value=fake):
+            self.bridge.BrainLinkSession()._open_and_verify_rfcomm("42:22:22:25:AC:97")
+
+        self.assertEqual(fake.connected_to, ("42:22:22:25:AC:97", 3))
+
+    def test_rfcomm_connect_failure_is_explained_and_closes_socket(self) -> None:
+        fake = FakeSocket(connect_error=OSError(112, "Host is down"))
+
+        with patch.object(self.bridge.socket, "socket", return_value=fake):
+            with self.assertRaisesRegex(RuntimeError, "42:22:22:25:AC:97.*Host is down"):
+                self.bridge.BrainLinkSession()._open_and_verify_rfcomm("42:22:22:25:AC:97")
+
+        self.assertTrue(fake.closed)
+
+    def test_rfcomm_probe_failure_closes_socket(self) -> None:
+        fake = FakeSocket()
+
+        with (
+            patch.object(self.bridge.socket, "socket", return_value=fake),
+            patch.object(self.bridge, "PROBE_SECONDS", -1.0),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "no valid ThinkGear packets"):
+                self.bridge.BrainLinkSession()._open_and_verify_rfcomm("42:22:22:25:AC:97")
+
+        self.assertTrue(fake.closed)
+
+    def test_rfcomm_read_timeout_returns_no_data(self) -> None:
+        fake = FakeSocket([TimeoutError("timed out"), b"\xaa"])
+
+        with patch.object(self.bridge.socket, "socket", return_value=fake):
+            transport = self.bridge.RfcommTransport("42:22:22:25:AC:97", 1)
+
+        self.assertEqual(transport.read(512), b"")
+        self.assertEqual(transport.read(512), b"\xaa")
+
+    def test_rfcomm_peer_close_emits_disconnect(self) -> None:
+        fake = FakeSocket([b""])
+        with patch.object(self.bridge.socket, "socket", return_value=fake):
+            transport = self.bridge.RfcommTransport("42:22:22:25:AC:97", 1)
+
+        session = self.bridge.BrainLinkSession()
+        session._serial = transport
+        emitted: list[dict] = []
+
+        with patch.object(self.bridge, "emit", side_effect=emitted.append):
+            session._reader_loop(self.bridge.ThinkGearParser())
+
+        self.assertEqual(emitted[0]["type"], "device-disconnected")
+        self.assertIn("closed by the device", emitted[0]["reason"])
+        self.assertTrue(fake.closed)
+
+    def test_connect_request_forwards_bluetooth_address(self) -> None:
+        stub = Mock()
+        stub.connect.return_value = {"port": "42:22:22:25:AC:97"}
+
+        with (
+            patch.object(self.bridge, "session", stub),
+            patch.object(self.bridge, "emit"),
+        ):
+            self.bridge.handle_request(
+                {
+                    "id": "1",
+                    "command": "connect",
+                    "payload": {"bluetoothAddress": "42:22:22:25:AC:97"},
+                }
+            )
+
+        stub.connect.assert_called_once_with(None, "42:22:22:25:AC:97")
+
     def test_handle_packet_emits_metrics_and_signal_quality(self) -> None:
         session = self.bridge.BrainLinkSession()
         session._port = "COM7"
@@ -278,7 +422,7 @@ class BrainLinkBridgeTests(unittest.TestCase):
             def scan_ports(self):
                 return []
 
-            def connect(self, requested_port=None):
+            def connect(self, requested_port=None, bluetooth_address=None):
                 return {"port": requested_port or "COM7"}
 
             def latest_metrics(self):

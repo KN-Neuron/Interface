@@ -1264,6 +1264,50 @@ h2 {
   font-weight: 500;
 }
 
+.device-card__metadata .device-card__address {
+  gap: 6px;
+}
+
+.device-card__address label {
+  color: #7e7e7e;
+
+  font-size: 9px;
+
+  letter-spacing: 0.05em;
+
+  text-transform: uppercase;
+}
+
+.device-card__address input {
+  width: 100%;
+
+  padding: 6px 8px;
+
+  border: 1px solid #333333;
+
+  color: #d0d0d0;
+
+  background: #000000;
+
+  font-size: 11px;
+}
+
+.device-card__address input[aria-invalid="true"] {
+  border-color: #e9818d;
+}
+
+.device-card__address input:disabled {
+  color: #7e7e7e;
+}
+
+.device-card__metadata .device-card__address span {
+  color: #e9818d;
+
+  letter-spacing: normal;
+
+  text-transform: none;
+}
+
 .device-card__message,
 .device-card__error {
   grid-area: note;
