@@ -1,3 +1,7 @@
+import { useId, useState } from "react";
+
+import { normalizeBluetoothAddress } from "../../core/devices/contracts/BluetoothAddressDeviceAdapter";
+
 import type { DeviceInfo, DeviceStatus } from "../../core/devices/models/device";
 
 import { ModuleThumbnail } from "../../components/ModuleThumbnail";
@@ -7,7 +11,11 @@ interface DeviceCardProps {
   status: Readonly<DeviceStatus>;
   active: boolean;
   busy: boolean;
-  onConnect: () => void;
+  /**
+   * Undefined hides the Bluetooth address field.
+   */
+  savedBluetoothAddress?: string;
+  onConnect: (bluetoothAddress?: string) => void;
   onDisconnect: () => void;
 }
 
@@ -20,12 +28,24 @@ export function DeviceCard({
   status,
   active,
   busy,
+  savedBluetoothAddress,
   onConnect,
   onDisconnect,
 }: DeviceCardProps) {
   const connected = active && status.state === "connected";
   const connecting = active && status.state === "connecting";
   const disconnecting = active && status.state === "disconnecting";
+
+  const addressInputId = useId();
+
+  const [bluetoothAddress, setBluetoothAddress] = useState(savedBluetoothAddress ?? "");
+
+  const addressField = savedBluetoothAddress !== undefined;
+
+  const addressInvalid =
+    addressField &&
+    bluetoothAddress.trim() !== "" &&
+    normalizeBluetoothAddress(bluetoothAddress) === null;
 
   const buttonDisabled = busy || connecting || disconnecting;
 
@@ -63,6 +83,28 @@ export function DeviceCard({
           <span>Transport</span>
           <strong>{formatTransport(device.transport)}</strong>
         </div>
+
+        {addressField && (
+          <div className="device-card__address">
+            <label htmlFor={addressInputId}>Bluetooth MAC address</label>
+
+            <input
+              id={addressInputId}
+              type="text"
+              value={bluetoothAddress}
+              placeholder="AA:BB:CC:DD:EE:FF"
+              spellCheck={false}
+              autoComplete="off"
+              aria-invalid={addressInvalid}
+              disabled={buttonDisabled || connected}
+              onChange={(event) => {
+                setBluetoothAddress(event.target.value);
+              }}
+            />
+
+            {addressInvalid && <span>Use the format AA:BB:CC:DD:EE:FF.</span>}
+          </div>
+        )}
       </div>
 
       {active && status.message && <p className="device-card__message">{status.message}</p>}
@@ -82,8 +124,10 @@ export function DeviceCard({
           <button
             type="button"
             className="primary-button"
-            disabled={buttonDisabled}
-            onClick={onConnect}
+            disabled={buttonDisabled || addressInvalid}
+            onClick={() => {
+              onConnect(addressField ? bluetoothAddress : undefined);
+            }}
           >
             {connecting ? "Connecting..." : "Connect"}
           </button>

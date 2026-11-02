@@ -6,6 +6,8 @@ import { deviceRegistry } from "../../core/devices/deviceRegistry";
 
 import { isEEGDeviceAdapter } from "../../core/devices/contracts/deviceGuards";
 
+import { isBluetoothAddressDeviceAdapter } from "../../core/devices/contracts/BluetoothAddressDeviceAdapter";
+
 import { notificationStore } from "../../lib/notificationStore";
 
 import { logger } from "../../lib/logger";
@@ -107,33 +109,47 @@ export function useDevice() {
 
   /**
    * Connects a device through DeviceManager.
+   *
+   * A blank Bluetooth address clears the adapter's saved address. Undefined
+   * leaves the adapter untouched.
    */
-  const connect = useCallback(async (deviceId: string): Promise<boolean> => {
-    try {
-      await deviceManager.connect(deviceId);
+  const connect = useCallback(
+    async (deviceId: string, bluetoothAddress?: string): Promise<boolean> => {
+      try {
+        const device = deviceRegistry.get(deviceId);
 
-      const device = deviceRegistry.get(deviceId);
+        if (
+          bluetoothAddress !== undefined &&
+          device !== undefined &&
+          isBluetoothAddressDeviceAdapter(device)
+        ) {
+          device.setBluetoothAddress(bluetoothAddress.trim() || null);
+        }
 
-      notificationStore.add({
-        type: "success",
-        title: "Device connected",
-        message: device?.info.name ?? deviceId,
-      });
+        await deviceManager.connect(deviceId);
 
-      return true;
-    } catch (error) {
-      const message = getErrorMessage(error);
+        notificationStore.add({
+          type: "success",
+          title: "Device connected",
+          message: device?.info.name ?? deviceId,
+        });
 
-      notificationStore.add({
-        type: "error",
-        title: "Device connection failed",
-        message,
-        durationMs: 6000,
-      });
+        return true;
+      } catch (error) {
+        const message = getErrorMessage(error);
 
-      return false;
-    }
-  }, []);
+        notificationStore.add({
+          type: "error",
+          title: "Device connection failed",
+          message,
+          durationMs: 6000,
+        });
+
+        return false;
+      }
+    },
+    [],
+  );
 
   /**
    * Disconnects the currently active device.
@@ -178,6 +194,19 @@ export function useDevice() {
     return DISCONNECTED_STATUS;
   }
 
+  /**
+   * Returns undefined when the device cannot be addressed by MAC address.
+   */
+  function getBluetoothAddressForDevice(deviceId: string): string | undefined {
+    const device = deviceRegistry.get(deviceId);
+
+    if (!device || !isBluetoothAddressDeviceAdapter(device)) {
+      return undefined;
+    }
+
+    return device.getBluetoothAddress() ?? "";
+  }
+
   return {
     snapshot,
     streamInfoByDeviceId,
@@ -186,5 +215,6 @@ export function useDevice() {
     disconnect,
 
     getStatusForDevice,
+    getBluetoothAddressForDevice,
   };
 }

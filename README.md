@@ -210,6 +210,15 @@ Neuorrun
 
 The UI presents signal quality as a percentage derived from `poorSignalLevel`.
 
+On the Device page, BrainLink Lite has an optional **Bluetooth MAC address** field:
+
+- With an address, the bridge opens a direct RFCOMM socket to the headset. No `/dev/rfcomm0` or `rfcomm bind` is needed. This is the normal way to connect on Linux.
+- Left blank, the bridge probes serial ports instead (Windows COM ports, or an existing `/dev/rfcomm*` on Linux).
+
+The headset must be paired once through the system's Bluetooth settings. Find its address on Linux with `bluetoothctl devices`. The last address used is remembered.
+
+The bridge uses RFCOMM channel 1. Set `KNEURON_BRAINLINK_RFCOMM_CHANNEL` before starting KNeuron if a headset uses a different channel.
+
 ---
 
 # Modules
@@ -1298,7 +1307,9 @@ Replace `COM7` with the actual outgoing Bluetooth COM port.
 
 ## BrainLink serial access fails on Linux
 
-Verify membership:
+Enter the headset's Bluetooth MAC address on the Device page. A direct RFCOMM link does not need a serial device or `dialout` membership.
+
+If you connect through an existing `/dev/rfcomm*` device instead, verify membership:
 
 ```bash
 groups

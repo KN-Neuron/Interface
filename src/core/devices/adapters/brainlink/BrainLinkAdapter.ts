@@ -10,9 +10,16 @@ import type {
 
 import type { BrainMetricsDeviceAdapter } from "../../contracts/BrainMetricsDeviceAdapter";
 
+import {
+  normalizeBluetoothAddress,
+  type BluetoothAddressDeviceAdapter,
+} from "../../contracts/BluetoothAddressDeviceAdapter";
+
 import type { BrainMetricsListener, BrainMetricsSnapshot } from "../../../brainMetrics";
 
 import { BrainLinkBridge, type BrainLinkBridgeLike } from "./BrainLinkBridge";
+
+const BLUETOOTH_ADDRESS_STORAGE_KEY = "kneuron.brainlink.bluetoothAddress";
 
 const DEVICE_INFO: EEGDeviceInfo = {
   id: "brainlink-lite",
@@ -31,7 +38,9 @@ const DEVICE_INFO: EEGDeviceInfo = {
  * attention/meditation metrics instead of pretending that Neuorrun requires
  * FBCCA or BrainAccess raw EEG.
  */
-export class BrainLinkAdapter implements DeviceAdapter, BrainMetricsDeviceAdapter {
+export class BrainLinkAdapter
+  implements DeviceAdapter, BrainMetricsDeviceAdapter, BluetoothAddressDeviceAdapter
+{
   readonly info: Readonly<EEGDeviceInfo> = DEVICE_INFO;
 
   private status: DeviceStatus = {
@@ -41,6 +50,8 @@ export class BrainLinkAdapter implements DeviceAdapter, BrainMetricsDeviceAdapte
   };
 
   private latestMetrics: Readonly<BrainMetricsSnapshot> | null = null;
+
+  private bluetoothAddress: string | null = readStoredBluetoothAddress();
 
   private readonly statusListeners = new Set<DeviceStatusListener>();
 
@@ -75,32 +86,54 @@ export class BrainLinkAdapter implements DeviceAdapter, BrainMetricsDeviceAdapte
     return { ...this.status };
   }
 
+  getBluetoothAddress(): string | null {
+    return this.bluetoothAddress;
+  }
+
+  setBluetoothAddress(address: string | null): void {
+    const normalized = address === null ? null : normalizeBluetoothAddress(address);
+
+    if (address !== null && normalized === null) {
+      throw new Error(`Invalid Bluetooth MAC address: ${address}`);
+    }
+
+    this.bluetoothAddress = normalized;
+
+    writeStoredBluetoothAddress(normalized);
+  }
+
   async connect(): Promise<void> {
     if (this.status.state === "connected") {
       return;
     }
 
+    const bluetoothAddress = this.bluetoothAddress;
+
     this.setStatus({
       state: "connecting",
-      message: "Searching Windows serial ports for BrainLink Lite...",
+      message: bluetoothAddress
+        ? `Opening Bluetooth link to BrainLink Lite at ${bluetoothAddress}...`
+        : "Searching serial ports for BrainLink Lite...",
       updatedAt: Date.now(),
     });
 
     try {
       await this.bridge.start();
 
-      const ports = await this.bridge.scan();
+      if (!bluetoothAddress) {
+        const ports = await this.bridge.scan();
 
-      this.setStatus({
-        state: "connecting",
-        message:
-          ports.length > 0
-            ? `Probing ${ports.length} serial port${ports.length === 1 ? "" : "s"} for BrainLink Lite...`
-            : "No serial ports were reported by Windows.",
-        updatedAt: Date.now(),
-      });
+        this.setStatus({
+          state: "connecting",
+          message:
+            ports.length > 0
+              ? `Probing ${ports.length} serial port${ports.length === 1 ? "" : "s"} for BrainLink Lite...`
+              : "No serial ports were reported by the system.",
+          updatedAt: Date.now(),
+        });
+      }
 
-      const connection = await this.bridge.connect();
+      const connection = await this.bridge.connect(bluetoothAddress ? { bluetoothAddress } : {});
 
       this.latestMetrics = await this.bridge.getMetrics();
 
@@ -200,5 +233,27 @@ export class BrainLinkAdapter implements DeviceAdapter, BrainMetricsDeviceAdapte
     for (const listener of this.statusListeners) {
       listener(snapshot);
     }
+  }
+}
+
+function readStoredBluetoothAddress(): string | null {
+  try {
+    const stored = window.localStorage.getItem(BLUETOOTH_ADDRESS_STORAGE_KEY);
+
+    return stored === null ? null : normalizeBluetoothAddress(stored);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredBluetoothAddress(address: string | null): void {
+  try {
+    if (address === null) {
+      window.localStorage.removeItem(BLUETOOTH_ADDRESS_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(BLUETOOTH_ADDRESS_STORAGE_KEY, address);
+    }
+  } catch {
+    // The address still applies to this session.
   }
 }

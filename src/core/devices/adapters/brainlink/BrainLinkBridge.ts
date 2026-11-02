@@ -18,6 +18,15 @@ export interface BrainLinkConnectionInfo {
   baudRate: number;
 }
 
+export interface BrainLinkConnectOptions {
+  port?: string;
+
+  /**
+   * Opens a direct RFCOMM link to this MAC address instead of a serial port.
+   */
+  bluetoothAddress?: string;
+}
+
 export type BrainLinkMetricsListener = (metrics: Readonly<BrainMetricsSnapshot>) => void;
 
 export type BrainLinkDisconnectListener = (reason: string) => void;
@@ -28,7 +37,7 @@ export interface BrainLinkBridgeLike {
 
   scan(): Promise<readonly BrainLinkPortInfo[]>;
 
-  connect(port?: string): Promise<BrainLinkConnectionInfo>;
+  connect(options?: BrainLinkConnectOptions): Promise<BrainLinkConnectionInfo>;
 
   disconnect(): Promise<void>;
 
@@ -84,8 +93,8 @@ interface PendingRequest {
 /**
  * Tauri/Python bridge for BrainLink Lite BL002 V2.0.
  *
- * The Python sidecar reads the Bluetooth serial COM port and parses the
- * ThinkGear binary protocol. Communication with Tauri uses JSONL over
+ * The Python sidecar reads the Bluetooth serial COM port or a direct RFCOMM
+ * socket and parses the ThinkGear binary protocol. Communication with Tauri uses JSONL over
  * stdin/stdout, matching the BrainAccess bridge architecture.
  */
 export class BrainLinkBridge implements BrainLinkBridgeLike {
@@ -150,8 +159,8 @@ export class BrainLinkBridge implements BrainLinkBridgeLike {
     return this.request<BrainLinkPortInfo[]>("scan");
   }
 
-  async connect(port?: string): Promise<BrainLinkConnectionInfo> {
-    return this.request<BrainLinkConnectionInfo>("connect", port ? { port } : {});
+  async connect(options: BrainLinkConnectOptions = {}): Promise<BrainLinkConnectionInfo> {
+    return this.request<BrainLinkConnectionInfo>("connect", { ...options });
   }
 
   async disconnect(): Promise<void> {

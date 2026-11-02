@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BrainMetricsSnapshot } from "../../../../brainMetrics";
 
@@ -6,6 +6,7 @@ import { BrainLinkAdapter } from "../BrainLinkAdapter";
 
 import type {
   BrainLinkBridgeLike,
+  BrainLinkConnectOptions,
   BrainLinkDisconnectListener,
   BrainLinkMetricsListener,
 } from "../BrainLinkBridge";
@@ -27,12 +28,12 @@ class FakeBrainLinkBridge implements BrainLinkBridgeLike {
     },
   ];
 
-  connect = async () => ({
+  connect = vi.fn(async (options?: BrainLinkConnectOptions) => ({
     deviceName: "BrainLink Lite",
     model: "BL002 V2.0",
-    port: "COM7",
+    port: options?.bluetoothAddress ?? "COM7",
     baudRate: 57600,
-  });
+  }));
 
   getMetrics = async (): Promise<Readonly<BrainMetricsSnapshot> | null> => null;
 
@@ -54,6 +55,10 @@ class FakeBrainLinkBridge implements BrainLinkBridgeLike {
 }
 
 describe("BrainLinkAdapter", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("starts disconnected", () => {
     const adapter = new BrainLinkAdapter(new FakeBrainLinkBridge());
     expect(adapter.getStatus().state).toBe("disconnected");
@@ -89,5 +94,44 @@ describe("BrainLinkAdapter", () => {
 
     expect(received).toEqual([68]);
     expect(adapter.getLatestBrainMetrics()?.attention).toBe(68);
+  });
+
+  it("uses serial port discovery when no Bluetooth address is set", async () => {
+    const bridge = new FakeBrainLinkBridge();
+    const adapter = new BrainLinkAdapter(bridge);
+
+    await adapter.connect();
+
+    expect(bridge.connect).toHaveBeenCalledWith({});
+  });
+
+  it("connects directly to a configured Bluetooth address", async () => {
+    const bridge = new FakeBrainLinkBridge();
+    const adapter = new BrainLinkAdapter(bridge);
+
+    adapter.setBluetoothAddress("42-22-22-25-ac-97");
+    await adapter.connect();
+
+    expect(bridge.connect).toHaveBeenCalledWith({ bluetoothAddress: "42:22:22:25:AC:97" });
+    expect(adapter.getStatus().message).toContain("42:22:22:25:AC:97");
+  });
+
+  it("remembers the Bluetooth address between adapter instances", () => {
+    new BrainLinkAdapter(new FakeBrainLinkBridge()).setBluetoothAddress("42:22:22:25:AC:97");
+
+    const adapter = new BrainLinkAdapter(new FakeBrainLinkBridge());
+    expect(adapter.getBluetoothAddress()).toBe("42:22:22:25:AC:97");
+
+    adapter.setBluetoothAddress(null);
+    expect(new BrainLinkAdapter(new FakeBrainLinkBridge()).getBluetoothAddress()).toBeNull();
+  });
+
+  it("rejects an invalid Bluetooth address", () => {
+    const adapter = new BrainLinkAdapter(new FakeBrainLinkBridge());
+
+    expect(() => {
+      adapter.setBluetoothAddress("42:22:22");
+    }).toThrow("Invalid Bluetooth MAC address");
+    expect(adapter.getBluetoothAddress()).toBeNull();
   });
 });
