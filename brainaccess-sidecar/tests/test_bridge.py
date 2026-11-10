@@ -219,6 +219,11 @@ class BrainAccessBridgeTests(unittest.TestCase):
         self.core.close.reset_mock()
         self.core.scan.reset_mock(return_value=[])
 
+        # Never touch the real Bluetooth cache: no cached devices.
+        bluetoothctl = patch.object(self.bridge, "bluetoothctl", return_value="")
+        bluetoothctl.start()
+        self.addCleanup(bluetoothctl.stop)
+
     def test_emit_writes_one_compact_json_line(self) -> None:
         stdout = io.StringIO()
         with patch.object(sys, "stdout", stdout):
@@ -240,6 +245,43 @@ class BrainAccessBridgeTests(unittest.TestCase):
         self.assertEqual(second, first)
         self.core.init.assert_called_once_with()
         self.assertEqual(self.core.scan.call_count, 2)
+
+    def test_scan_and_connect_clear_cached_headsets_first(self) -> None:
+        session = self.bridge.BrainAccessSession()
+
+        with patch.object(self.bridge, "forget_cached_headsets") as forget:
+            session.scan()
+            session.connect("BA MAXI 009")
+
+        self.assertEqual(forget.call_count, 2)
+
+    def test_forget_cached_headsets_removes_only_idle_unpaired_headsets(self) -> None:
+        outputs = {
+            ("devices",): (
+                "Device AA BA MAXI 009\n"
+                "Device BB BA MIDI 026\n"
+                "Device CC JBL TUNE670NC\n"
+                "Device DD BA MIDI 027\n"
+            ),
+            ("info", "AA"): "\tPaired: no\n\tConnected: no\n",
+            ("info", "BB"): "\tPaired: yes\n\tConnected: no\n",
+            ("info", "DD"): "\tPaired: no\n\tConnected: yes\n",
+        }
+        removed: list[str] = []
+
+        def bluetoothctl(*args: str) -> str:
+            if args[0] == "remove":
+                removed.append(args[1])
+                return ""
+            return outputs[args]
+
+        with (
+            patch.object(self.bridge.sys, "platform", "linux"),
+            patch.object(self.bridge, "bluetoothctl", side_effect=bluetoothctl),
+        ):
+            self.bridge.forget_cached_headsets()
+
+        self.assertEqual(removed, ["AA"])
 
     def test_connect_configures_channels_and_returns_connection_info(self) -> None:
         session = self.bridge.BrainAccessSession()

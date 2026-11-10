@@ -16,6 +16,7 @@ native games and any LSL tool can record it.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import threading
 from typing import Any, Callable
@@ -62,6 +63,41 @@ def device_model_name(manager: Any) -> str | None:
         return str(manager.get_device_info().device_model.name)
     except Exception:
         return None
+
+
+def bluetoothctl(*args: str) -> str:
+    return subprocess.run(
+        ["bluetoothctl", *args],
+        capture_output=True,
+        stdin=subprocess.DEVNULL,
+        text=True,
+        timeout=5,
+    ).stdout
+
+
+def forget_cached_headsets() -> None:
+    """Drops idle, unpaired BrainAccess headsets from BlueZ's device cache (Linux only).
+
+    The SDK scans for both scan and connect, and on Linux its scan reports only
+    devices that BlueZ adds or whose signal strength jumps. A headset any scan saw
+    in the last 30 s is still cached, so the SDK would miss it ("No devices found").
+    """
+    if not sys.platform.startswith("linux"):
+        return
+
+    try:
+        for line in bluetoothctl("devices").splitlines():
+            parts = line.split(" ", 2)
+            if len(parts) < 3 or parts[0] != "Device" or not parts[2].startswith("BA "):
+                continue
+
+            info = bluetoothctl("info", parts[1])
+            if "Paired: yes" in info or "Connected: yes" in info:
+                continue
+
+            bluetoothctl("remove", parts[1])
+    except (OSError, subprocess.SubprocessError) as exc:
+        log(f"Could not clear BrainAccess headsets from the Bluetooth cache: {exc}")
 
 
 class LslPublisher:
@@ -165,6 +201,7 @@ class BrainAccessSession:
             raise RuntimeError("Disconnect the active BrainAccess device before scanning.")
 
         self.ensure_core()
+        forget_cached_headsets()
 
         devices = core.scan()
 
@@ -190,6 +227,7 @@ class BrainAccessSession:
             )
 
         self.ensure_core()
+        forget_cached_headsets()
 
         manager = EEGManager()
 
