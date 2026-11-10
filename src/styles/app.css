@@ -23,12 +23,46 @@
 
   --muted: #b2b2b2;
 
-  --accent: #d71f27;
+  /* KN Neuron logo colors, top to bottom: white, mint, cyan, blue, indigo. */
+  --brand-mint: #a2fff5;
 
-  --accent-bright: #d71f27;
+  --brand-cyan: #8ce0f8;
 
-  --accent-dark: #a3161c;
+  --brand-blue: #7ab3fa;
 
+  --brand-indigo: #6377fe;
+
+  /* Borders, bars, toggles. */
+  --accent: var(--brand-indigo);
+
+  /* Accent text and focus rings. */
+  --accent-bright: var(--brand-cyan);
+
+  --accent-soft: var(--brand-mint);
+
+  --accent-dark: #4b5bd4;
+
+  /* Fills (buttons, progress, meters), like the logo's gradient. */
+  --accent-gradient: linear-gradient(
+    90deg,
+    var(--brand-indigo),
+    var(--brand-blue) 55%,
+    var(--brand-mint)
+  );
+
+  --accent-gradient-hover: linear-gradient(90deg, #7a8bff, #93c3ff 55%, #c0fff8);
+
+  --accent-gradient-vertical: linear-gradient(
+    180deg,
+    var(--brand-mint),
+    var(--brand-blue),
+    var(--brand-indigo)
+  );
+
+  /* Text on accent fills: the logo colors are light, so dark text reads best. */
+  --on-accent: #060a18;
+
+  /* Errors and destructive actions stay red. */
   --danger: #ff4655;
 }
 
@@ -75,12 +109,12 @@ select:focus-visible {
 ::selection {
   color: #ffffff;
 
-  background: rgb(215 31 39 / 70%);
+  background: rgb(99 119 254 / 70%);
 }
 
 input,
 textarea {
-  caret-color: #d71f27;
+  caret-color: var(--accent-bright);
 }
 
 h1,
@@ -130,7 +164,7 @@ h2 {
 
   padding: 0 18px;
 
-  border: 1px solid #d71f27;
+  border: 1px solid var(--accent);
 
   color: #ffffff;
 
@@ -138,7 +172,9 @@ h2 {
 }
 
 .primary-button {
-  background: linear-gradient(110deg, #d71f27, #d71f27);
+  color: var(--on-accent);
+
+  background: var(--accent-gradient);
 }
 
 .primary-button:hover:not(:disabled) {
@@ -193,7 +229,7 @@ h2 {
 
   padding: 20px;
 
-  border-left: 3px solid #d71f27;
+  border-left: 3px solid var(--accent);
 
   background: #111111;
 }
@@ -272,7 +308,7 @@ h2 {
 
   border: 0;
 
-  color: #ef6a6f;
+  color: var(--accent-bright);
 
   background: transparent;
 
@@ -284,7 +320,7 @@ h2 {
 }
 
 .module-host__back:hover {
-  color: #ef6a6f;
+  color: var(--accent-soft);
 }
 
 .module-host__status {
@@ -314,7 +350,7 @@ h2 {
 .module-host__status strong {
   margin-top: 4px;
 
-  color: #ef6a6f;
+  color: var(--accent-bright);
 
   font-size: 13px;
 
@@ -370,7 +406,7 @@ h2 {
 
   border: 1px solid #272727;
 
-  color: #ef6a6f;
+  color: var(--accent-bright);
 
   background: #101010;
 
@@ -588,7 +624,7 @@ h2 {
 
   border: 1px solid #2a2a2a;
 
-  color: #ef6a6f;
+  color: var(--accent-bright);
 
   background: #141414;
 
@@ -660,13 +696,13 @@ h2 {
 }
 
 .setting-toggle--enabled .setting-toggle__track {
-  border-color: #d71f27;
+  border-color: var(--accent);
 
   background: #212121;
 }
 
 .setting-toggle--enabled .setting-toggle__thumb {
-  background: #d71f27;
+  background: var(--accent);
 
   transform: translateX(18px);
 }
@@ -682,7 +718,7 @@ h2 {
 }
 
 .setting-toggle--enabled .setting-toggle__value {
-  color: #ef6a6f;
+  color: var(--accent-bright);
 }
 
 .setting-select {
@@ -696,7 +732,7 @@ h2 {
 
   border-radius: 0;
 
-  color: #ef6a6f;
+  color: var(--accent-bright);
 
   background: #141414;
 
@@ -710,11 +746,11 @@ h2 {
 }
 
 .setting-select:hover {
-  border-color: #a3161c;
+  border-color: var(--accent-dark);
 }
 
 .setting-select:focus {
-  border-color: #d71f27;
+  border-color: var(--accent);
 }
 
 .settings-actions {
@@ -776,7 +812,7 @@ h2 {
 }
 
 .notification--info {
-  border-left: 3px solid #d71f27;
+  border-left: 3px solid var(--accent);
 }
 
 .notification--warning {
@@ -796,7 +832,7 @@ h2 {
 
   padding-top: 2px;
 
-  color: #ef6a6f;
+  color: var(--accent-bright);
 }
 
 .notification--success .notification__icon {
@@ -982,7 +1018,7 @@ h2 {
 }
 
 .debug-entry__source {
-  color: #ef6a6f;
+  color: var(--accent-bright);
 }
 
 .debug-entry__message {
@@ -1072,7 +1108,7 @@ h2 {
 }
 
 .device-active-indicator {
-  color: #ff555d;
+  color: var(--accent-bright);
 
   font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
 
@@ -1120,19 +1156,19 @@ h2 {
 }
 
 .device-card--active .device-card__header h2 {
-  color: #d71f27;
+  color: var(--accent-bright);
 }
 
-/* Same action language as the module cards: solid red. */
+/* Same action language as the module cards: the brand gradient. */
 
 .device-card .primary-button {
-  border-color: #e30613;
+  border-color: var(--accent);
 
-  background: #e30613;
+  background: var(--accent-gradient);
 }
 
 .device-card .primary-button:hover:not(:disabled) {
-  background: #ff1a27;
+  background: var(--accent-gradient-hover);
 }
 
 /* Thumbnail spans the card edge to edge, like on module cards. */
@@ -1146,7 +1182,7 @@ h2 {
 }
 
 .device-card--active {
-  border-color: #d71f27;
+  border-color: var(--accent);
 }
 
 .device-card__header {
@@ -1386,7 +1422,7 @@ h2 {
 }
 
 .module-host__identity code {
-  color: #ff555d;
+  color: var(--accent-bright);
 
   font-family: "Barlow Semi Condensed", "Barlow", sans-serif;
 
@@ -1547,7 +1583,7 @@ h2 {
 }
 
 .brand strong::first-letter {
-  color: #d71f27;
+  color: var(--accent-bright);
 }
 
 .brand span {
@@ -1589,13 +1625,13 @@ h2 {
 }
 
 .window-controls .close {
-  color: #d71f27;
+  color: inherit;
 }
 
 .window-controls .close:hover {
   color: #ffffff;
 
-  background: #d71f27;
+  background: var(--danger);
 }
 
 /* ---------- Left navigation ---------- */
@@ -1673,7 +1709,7 @@ h2 {
 }
 
 .nav-item.active svg {
-  color: #d71f27;
+  color: var(--accent-bright);
 }
 
 .nav-item.active::before {
@@ -1689,7 +1725,7 @@ h2 {
 
   width: 4px;
 
-  background: #d71f27;
+  background: var(--accent-gradient-vertical);
 }
 
 .sidebar__footer {
@@ -1753,7 +1789,7 @@ h2 {
 .eyebrow {
   display: block;
 
-  color: #d71f27;
+  color: var(--accent-bright);
 
   font-size: 13px;
 
@@ -1861,7 +1897,7 @@ h2 {
 }
 
 .device-panel__dot--error {
-  background: #d71f27;
+  background: var(--danger);
 }
 
 .device-panel__details {
@@ -1943,7 +1979,7 @@ h2 {
 
   height: 3px;
 
-  background: #d71f27;
+  background: var(--accent-gradient);
 }
 
 .dashboard__subtitle {
@@ -2066,7 +2102,7 @@ h2 {
 .module-card__meta span {
   padding: 7px 14px;
 
-  border: 1px solid #b0161d;
+  border: 1px solid var(--accent-dark);
 
   color: #ffffff;
 
@@ -2104,9 +2140,9 @@ h2 {
 
   border: 0;
 
-  color: #ffffff;
+  color: var(--on-accent);
 
-  background: #e30613;
+  background: var(--accent-gradient);
 
   font-size: 16px;
 
@@ -2128,7 +2164,7 @@ h2 {
 }
 
 .module-card__open:hover:not(:disabled) {
-  background: #ff1a27;
+  background: var(--accent-gradient-hover);
 }
 
 .module-card__open:hover:not(:disabled) svg {

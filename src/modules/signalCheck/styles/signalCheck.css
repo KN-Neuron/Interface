@@ -81,8 +81,8 @@
 .signal-check__empty button {
   border: 0;
   padding: 0 16px;
-  color: #ededed;
-  background: #dd0610;
+  color: var(--on-accent);
+  background: var(--accent-gradient);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -256,7 +256,7 @@
 }
 
 .signal-check__empty > span {
-  color: #d71f27;
+  color: var(--accent-bright);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.17em;

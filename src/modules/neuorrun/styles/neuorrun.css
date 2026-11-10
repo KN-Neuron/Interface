@@ -72,8 +72,8 @@
 .neuorrun-module__telemetry button,
 .neuorrun-module__brain-warning button {
   border: 0;
-  color: #ededed;
-  background: #dd0610;
+  color: var(--on-accent);
+  background: var(--accent-gradient);
   padding: 0 16px;
   font-size: 9px;
   font-weight: 700;
@@ -111,7 +111,7 @@
 }
 
 .neuorrun-module__overlay > span {
-  color: #d71f27;
+  color: var(--accent-bright);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.17em;
@@ -146,7 +146,7 @@
 
 .neuorrun-module__progress > div {
   height: 100%;
-  background: #d71f27;
+  background: var(--accent-gradient);
   transition: width 120ms linear;
 }
 

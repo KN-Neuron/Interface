@@ -79,8 +79,8 @@
 .game-module__exit {
   border: 0;
   padding: 0 16px;
-  color: #ededed;
-  background: #dd0610;
+  color: var(--on-accent);
+  background: var(--accent-gradient);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -135,7 +135,7 @@
 }
 
 .game-module__controls li strong {
-  color: #d71f27;
+  color: var(--accent-bright);
   font-weight: 650;
 }
 
@@ -222,7 +222,7 @@
 
 .game-panel__progress > div {
   height: 100%;
-  background: #d71f27;
+  background: var(--accent-gradient);
   transition: width 200ms linear;
 }
 
@@ -259,19 +259,19 @@
 
 .game-button--primary {
   min-height: 52px;
-  color: #ffffff;
-  background: #d71f27;
+  color: var(--on-accent);
+  background: var(--accent-gradient);
   font-size: 13px;
   letter-spacing: 0.16em;
 }
 
 .game-button--primary:not(:disabled):hover {
-  background: #e7262f;
+  background: var(--accent-gradient-hover);
 }
 
 .game-button--primary.is-running {
-  border-color: #6a1f26;
-  color: #ff93a1;
+  border-color: var(--accent-dark);
+  color: var(--accent-bright);
   background: #1a0b0d;
 }
 
@@ -347,7 +347,7 @@
 }
 
 .game-panel__status--error {
-  border-left-color: #d71f27;
+  border-left-color: var(--danger);
   color: #ffb3bd;
 }
 
@@ -383,7 +383,7 @@
 
 .game-meter__track > div {
   height: 100%;
-  background: #d71f27;
+  background: var(--accent-gradient);
   transition: width 240ms ease-out;
 }
 

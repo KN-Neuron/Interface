@@ -110,9 +110,9 @@
   }
 }
 
-/* KNeuron wordmark: red K, matching the title bar. */
+/* KNeuron wordmark: cyan K, matching the title bar. */
 .welcome-screen h1::first-letter {
-  color: #d71f27;
+  color: var(--accent-bright);
 }
 
 .welcome-screen__logo {

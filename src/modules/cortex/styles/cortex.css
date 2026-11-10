@@ -196,7 +196,7 @@
 
 .cortex-button:hover:not(:disabled),
 .cortex-button--active {
-  border-color: #e50611;
+  border-color: var(--accent);
   background: #1f1f1f;
   color: #f2f2f2;
 }
@@ -330,7 +330,7 @@
 
 .cortex-calibration-fill {
   height: 100%;
-  background: linear-gradient(90deg, #d71f27, #d71f27);
+  background: var(--accent-gradient);
   transition: width 90ms linear;
 }
 
@@ -350,7 +350,7 @@
 }
 
 .cortex-button--primary {
-  border-color: #d71f27;
+  border-color: var(--accent);
   background: #272727;
   color: #f3f3f3;
 }
@@ -415,5 +415,5 @@
 
 .cortex-activity-fill {
   height: 100%;
-  background: #d71f27;
+  background: var(--accent-gradient);
 }

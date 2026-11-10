@@ -37,7 +37,7 @@
 }
 
 .miner-game__section-label {
-  color: #d71f27;
+  color: var(--accent-bright);
 
   font-size: 10px;
 
@@ -252,8 +252,8 @@
     linear-gradient(rgba(11, 11, 11, 0.36), rgba(11, 11, 11, 0.36)),
     repeating-linear-gradient(
       135deg,
-      rgba(215, 31, 39, 0.025) 0,
-      rgba(215, 31, 39, 0.025) 1px,
+      rgba(99, 119, 254, 0.03) 0,
+      rgba(99, 119, 254, 0.03) 1px,
       transparent 1px,
       transparent 11px
     );
@@ -403,13 +403,13 @@
 }
 
 .miner-game__legend-miner {
-  background: #d71f27;
+  background: #b08850;
 }
 
 .miner-game__legend-diamond {
   transform: rotate(45deg);
 
-  background: #d71f27;
+  background: #f62e84;
 }
 
 .miner-game__legend-rock {
@@ -445,7 +445,7 @@
 
   border: 1px solid #3e3e3e;
 
-  color: #ef6a6f;
+  color: var(--accent-bright);
 
   background: #151515;
 
@@ -461,11 +461,11 @@
 
   min-height: 43px;
 
-  border: 1px solid #d71f27;
+  border: 1px solid var(--accent);
 
-  color: #ffffff;
+  color: var(--on-accent);
 
-  background: linear-gradient(90deg, #db0610, #d71f27);
+  background: var(--accent-gradient);
 
   font-size: 11px;
 
@@ -536,7 +536,7 @@
 }
 
 .miner-game__frequency-list input:focus {
-  border-color: #d71f27;
+  border-color: var(--accent);
 }
 
 .miner-game__frequency-list small {
@@ -614,7 +614,7 @@
 }
 
 .miner-game__winner span {
-  color: #d71f27;
+  color: var(--accent-bright);
 
   font-weight: 700;
 }
@@ -721,7 +721,7 @@
 .miner-ssvep-overlay__countdown > span,
 .miner-ssvep-overlay__analyzing > span,
 .miner-game__complete-card > span {
-  color: #d71f27;
+  color: var(--accent-bright);
 
   font-size: 10px;
 
@@ -910,7 +910,7 @@
 .miner-ssvep-overlay__progress > div {
   height: 100%;
 
-  background: #d71f27;
+  background: var(--accent-gradient);
 }
 
 .miner-ssvep-overlay__footer button {
@@ -922,7 +922,7 @@
 
   margin: 30px 0;
 
-  background: linear-gradient(90deg, transparent, #d71f27, transparent);
+  background: linear-gradient(90deg, transparent, var(--accent-bright), transparent);
 
   animation: miner-scanner 1.2s linear infinite;
 }
